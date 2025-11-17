@@ -1,0 +1,32 @@
+{
+  "name": "y-que-comemos",
+  "version": "1.0.0",
+  "description": "Aplicación de planificación de comidas y gestión nutricional familiar",
+  "private": true,
+  "workspaces": [
+    "app",
+    "server",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:app\" \"npm run dev:server\"",
+    "dev:app": "npm run dev --workspace=app",
+    "dev:server": "npm run dev --workspace=server",
+    "build": "npm run build --workspaces",
+    "build:app": "npm run build --workspace=app",
+    "build:server": "npm run build --workspace=server",
+    "test": "npm run test --workspaces"
+  },
+  "keywords": [
+    "meal-planning",
+    "nutrition",
+    "family",
+    "cooking",
+    "diet"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
