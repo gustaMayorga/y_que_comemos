@@ -5,68 +5,142 @@
 // ============================================================================
 
 // ---------------------------------------------------------------------------
-// 1) PLACA / PINES   (ESP32 DevKit v1 - 30 pines)
+// 0) PLACA
+//    BOARD_NANO  -> Arduino Nano / Uno (ATmega328P). Demo actual.
+//    BOARD_ESP32 -> ESP32 DevKit v1. Fase 2, habilita WiFi.
+//    Cambiar de placa = cambiar esta linea. El resto del firmware se adapta.
 // ---------------------------------------------------------------------------
-#define PIN_LED_DATA      13   // DIN de la primera tira WS2812B (usar level shifter)
-
-// Sensores de proximidad (HC-SR04). ECHO siempre con divisor 1k/2k a 3.3V.
-#define PIN_TRIG_A        25
-#define PIN_ECHO_A        26
-#define PIN_TRIG_B        32
-#define PIN_ECHO_B        33
-
-// Receptor RF 433 MHz de 4 canales (PT2272-M4), salidas momentaneas a 3.3V
-#define PIN_RF_CH1        14   // +1 punto Equipo A
-#define PIN_RF_CH2        27   // +1 punto Equipo B
-#define PIN_RF_CH3        16   // UNDO (deshacer ultimo punto)
-#define PIN_RF_CH4        17   // MODO: pulso corto = modo saque/brillo, 2 s = reset partido
-
-#define PIN_BUZZER         4   // buzzer pasivo 5 V via transistor, o activo directo
-#define PIN_BTN_LOCAL      18  // boton fisico en la caja (mismas funciones que CH4)
-#define PIN_LDR            34  // LDR / BH1750 opcional para brillo automatico (solo entrada)
+#define BOARD_NANO
+//#define BOARD_ESP32
 
 // ---------------------------------------------------------------------------
-// 2) GEOMETRIA DEL DISPLAY
-//    Cada digito son 7 segmentos hechos con tira WS2812B cortada.
-//    Orden de cableado dentro del digito: A,B,C,D,E,F,G (ver docs/02).
+// 1) PERFIL DE ARMADO
+//    LAYOUT_BENCH -> banco de pruebas: 60 LEDs exactos (1 tira de 1 m de 60/m).
+//                    Toda la logica se prueba con esto. Dígitos ilegibles pero
+//                    el cableado y el firmware son los definitivos.
+//    LAYOUT_DEMO  -> demo jugable: 190 LEDs (~3.2 m). Dígitos de 15 cm.
+//    LAYOUT_FULL  -> cartel final: 278 LEDs (~4.7 m). Dígitos de 23 cm.
 // ---------------------------------------------------------------------------
-#define LEDS_PER_SEG_BIG    6   // digitos de PUNTOS  -> segmento ~100 mm (tira 60 LED/m)
-#define LEDS_PER_SEG_SMALL  4   // digito de GAMES    -> segmento ~67 mm
-#define LEDS_PER_SET_DOT    2   // cada punto de SET
-#define SET_DOTS_PER_TEAM   3   // cuantos sets como maximo se muestran
-
-#define DIGIT_BIG_LEDS    (LEDS_PER_SEG_BIG * 7)     // 42
-#define DIGIT_SMALL_LEDS  (LEDS_PER_SEG_SMALL * 7)   // 28
-#define SET_DOTS_LEDS     (LEDS_PER_SET_DOT * SET_DOTS_PER_TEAM)
-
-// Por equipo: [puntos decena][puntos unidad][games][3 dots de set]
-#define LEDS_PER_TEAM     (2 * DIGIT_BIG_LEDS + DIGIT_SMALL_LEDS + SET_DOTS_LEDS)
-#define NUM_LEDS          (2 * LEDS_PER_TEAM)
-
-// Orden de la guirnalda: primero Equipo A completo, despues Equipo B.
-#define TEAM_A_OFFSET     0
-#define TEAM_B_OFFSET     LEDS_PER_TEAM
+//#define LAYOUT_BENCH
+#define LAYOUT_DEMO
+//#define LAYOUT_FULL
 
 // ---------------------------------------------------------------------------
-// 3) BRILLO Y PRESUPUESTO DE CORRIENTE
-//    FastLED escala el brillo solo para no pasarse del limite declarado.
-//    Ajustar PSU_MILLIAMPS al real de la fuente (power bank 5V/3A -> 2600).
+// 2) PINES
+// ---------------------------------------------------------------------------
+#ifdef BOARD_NANO
+  // Nano es 5 V: NO hace falta level shifter para la tira
+  // ni divisor en los ECHO de los HC-SR04. Cableado mas simple que el ESP32.
+  #define PIN_LED_DATA     6
+  #define PIN_TRIG_A       2
+  #define PIN_ECHO_A       3
+  #define PIN_TRIG_B       4
+  #define PIN_ECHO_B       5
+  #define PIN_RF_CH1       7    // +1 punto Equipo A
+  #define PIN_RF_CH2       8    // +1 punto Equipo B
+  #define PIN_RF_CH3       9    // corto: deshacer / largo: cambiar saque
+  #define PIN_RF_CH4      10    // corto: brillo / 2 s: reset del partido
+  #define PIN_BUZZER      11
+  #define PIN_BTN_LOCAL   12    // a GND, usa INPUT_PULLUP
+  #define PIN_LDR         A0
+  #define ADC_MAX       1023
+  // D13 queda libre a proposito (tiene el LED de la placa en paralelo).
+#endif
+
+#ifdef BOARD_ESP32
+  #define PIN_LED_DATA    13    // usar level shifter 74AHCT125
+  #define PIN_TRIG_A      25
+  #define PIN_ECHO_A      26    // divisor 1k/2k: el ECHO sale 5 V
+  #define PIN_TRIG_B      32
+  #define PIN_ECHO_B      33    // divisor 1k/2k
+  #define PIN_RF_CH1      14
+  #define PIN_RF_CH2      27
+  #define PIN_RF_CH3      16
+  #define PIN_RF_CH4      17
+  #define PIN_BUZZER       4
+  #define PIN_BTN_LOCAL   18
+  #define PIN_LDR         34    // solo entrada
+  #define ADC_MAX       4095
+#endif
+
+// ---------------------------------------------------------------------------
+// 3) GEOMETRIA DEL DISPLAY
+//
+//  Layout del cartel (equipos uno al lado del otro, indicadores al centro):
+//
+//   ┌───────────────────────────┬─────────┬───────────────────────────┐
+//   │  EQUIPO A                 │ SAQUE   │                 EQUIPO B  │
+//   │   ┌────┐┌────┐            │  ◀   ▶  │            ┌────┐┌────┐   │
+//   │   │ 4  ││ 0  │  PUNTOS    │         │   PUNTOS   │ 3  ││ 0  │   │
+//   │   └────┘└────┘            │ PUNTO   │            └────┘└────┘   │
+//   │    [3]    [1]             │  ▲   ▲  │             [2]    [0]    │
+//   │   juegos  sets            │         │           juegos  sets    │
+//   └───────────────────────────┴─────────┴───────────────────────────┘
+//
+//  Orden de la guirnalda (hay que respetarlo al soldar):
+//    EQUIPO A: puntos decena, puntos unidad, juegos, sets
+//    EQUIPO B: puntos decena, puntos unidad, juegos, sets
+//    CENTRO:   saque A, saque B, punto A, punto B
+//  Dentro de cada digito: segmentos A,B,C,D,E,F,G en ese orden.
+// ---------------------------------------------------------------------------
+#ifdef LAYOUT_FULL
+  #define LEDS_PER_SEG_BIG    6   // PUNTOS   -> segmento 100 mm, digito ~230 mm
+  #define LEDS_PER_SEG_SMALL  4   // JUEGOS   -> segmento  67 mm, digito ~150 mm
+  #define LEDS_PER_SEG_TINY   3   // SETS     -> segmento  50 mm, digito ~115 mm
+  #define LEDS_PER_ICON       3   // flechas y avisos del centro
+#endif
+#ifdef LAYOUT_DEMO
+  #define LEDS_PER_SEG_BIG    4   // digito ~155 mm, legible a ~45 m
+  #define LEDS_PER_SEG_SMALL  3
+  #define LEDS_PER_SEG_TINY   2
+  #define LEDS_PER_ICON       2
+#endif
+#ifdef LAYOUT_BENCH
+  #define LEDS_PER_SEG_BIG    1   // 1 LED por segmento: 60 LEDs en total
+  #define LEDS_PER_SEG_SMALL  1
+  #define LEDS_PER_SEG_TINY   1
+  #define LEDS_PER_ICON       1
+#endif
+
+#define DIGIT_BIG_LEDS    (LEDS_PER_SEG_BIG   * 7)
+#define DIGIT_SMALL_LEDS  (LEDS_PER_SEG_SMALL * 7)
+#define DIGIT_TINY_LEDS   (LEDS_PER_SEG_TINY  * 7)
+
+// Por equipo: [puntos decena][puntos unidad][juegos][sets]
+#define LEDS_PER_TEAM   (2 * DIGIT_BIG_LEDS + DIGIT_SMALL_LEDS + DIGIT_TINY_LEDS)
+// Centro: saque A, saque B, punto A, punto B
+#define LEDS_CENTER     (4 * LEDS_PER_ICON)
+#define NUM_LEDS        (2 * LEDS_PER_TEAM + LEDS_CENTER)
+
+#define TEAM_A_OFFSET   0
+#define TEAM_B_OFFSET   LEDS_PER_TEAM
+#define CENTER_OFFSET   (2 * LEDS_PER_TEAM)
+
+// ---------------------------------------------------------------------------
+// 4) BRILLO Y PRESUPUESTO DE CORRIENTE
+//    FastLED escala el brillo global solo para no pasarse del limite.
+//    Power bank 5 V / 3 A -> 2600 mA con margen.
 // ---------------------------------------------------------------------------
 #define PSU_VOLTS            5
-#define PSU_MILLIAMPS     2600   // margen de seguridad sobre 3 A
-#define BRIGHTNESS_DAY     255   // sol directo: todo lo que de la fuente
+#define PSU_MILLIAMPS     2600
+#define BRIGHTNESS_DAY     255   // sol directo
 #define BRIGHTNESS_SHADE   150
 #define BRIGHTNESS_NIGHT    60
 
-// Color: rojo saturado = maximo contraste bajo sol con filtro acrilico rojo/humo.
+// Rojo/ambar: maximo contraste bajo sol con filtro acrilico oscuro.
 #define COLOR_POINTS      CRGB(255,  0,  0)
-#define COLOR_GAMES       CRGB(255, 60,  0)   // ambar, para diferenciar jerarquia
-#define COLOR_SETS        CRGB(255,255,  0)
-#define COLOR_SERVE       CRGB(  0,255, 60)
+#define COLOR_GAMES       CRGB(255, 60,  0)   // ambar
+#define COLOR_SETS        CRGB(255,180,  0)   // amarillo
+#define COLOR_SERVE       CRGB(  0,255, 60)   // verde
 #define COLOR_WIN         CRGB(  0,255,  0)
+// Jerarquia del indicador central "estas a un punto de..."
+#define COLOR_GAME_POINT  CRGB(  0,180,255)   // cyan   : punto de juego
+#define COLOR_SET_POINT   CRGB(255,180,  0)   // amarillo: punto de set
+#define COLOR_MATCH_POINT CRGB(255,  0,  0)   // rojo intermitente: punto de partido
+#define ICON_BLINK_MS      350                // periodo del titileo del punto de partido
 
 // ---------------------------------------------------------------------------
-// 4) REGLAS DEL PARTIDO (configurable en caliente desde el menu / futura app)
+// 5) REGLAS DEL PARTIDO
 // ---------------------------------------------------------------------------
 #define DEFAULT_GOLDEN_POINT   true   // 40-40 -> punto de oro (true) o ventajas (false)
 #define DEFAULT_GAMES_PER_SET     6
@@ -75,8 +149,8 @@
 #define TIEBREAK_TARGET           7
 
 // ---------------------------------------------------------------------------
-// 5) SENSADO POR PROXIMIDAD DE PALETA
-//    Equipo A = sensor izquierdo, Equipo B = sensor derecho (o al reves: ver docs).
+// 6) SENSADO POR PROXIMIDAD DE PALETA
+//    Equipo A = sensor izquierdo, Equipo B = sensor derecho.
 // ---------------------------------------------------------------------------
 #define PROX_TRIGGER_CM        20    // distancia que dispara el conteo
 #define PROX_REARM_CM          35    // hay que salir mas alla de esto para re-armar
@@ -86,14 +160,20 @@
 #define PROX_MAX_CM           120    // lecturas mayores se descartan
 
 // ---------------------------------------------------------------------------
-// 6) VARIOS
+// 7) VARIOS
 // ---------------------------------------------------------------------------
 #define BTN_LONG_PRESS_MS    2000    // reset de partido
-#define UNDO_DEPTH             16    // cuantos puntos se pueden deshacer
-                                     // (debe coincidir con hist_[] en padel_score.h)
 #define FEEDBACK_FLASH_MS     120
 #define ENABLE_BUZZER        true
 #define ENABLE_AUTO_BRIGHT   false   // poner true cuando se monte el LDR
+#define ENABLE_SERIAL_JSON   true    // publica el estado por Serial en cada cambio
 
-// Futuro (ver docs/04): no compila nada de red todavia.
+// Profundidad del UNDO. En AVR cada nivel cuesta 28 bytes de RAM.
+#ifdef BOARD_NANO
+  #define UNDO_DEPTH            8
+#else
+  #define UNDO_DEPTH           16
+#endif
+
+// Futuro (ver docs/04): solo disponible en ESP32.
 #define ENABLE_WIFI          false

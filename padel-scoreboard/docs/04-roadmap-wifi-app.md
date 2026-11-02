@@ -1,14 +1,21 @@
 # 04 - Roadmap: WiFi, app y lo que queda pensado desde ahora
 
-El MVP no lleva WiFi encendido, pero **no hay que rehacer nada** para agregarlo.
-Lo que ya está resuelto hoy:
+La demo se hace con **Arduino Nano**, que no tiene WiFi. Pero **no hay que
+rehacer nada** para agregarlo. Lo que ya está resuelto hoy:
 
-1. El cerebro es un **ESP32**: WiFi y BLE están en el chip, sin hardware extra.
-2. El estado del partido es un **único struct serializable** (`MatchState`).
-3. El **contrato JSON ya está congelado** (`net_stub.h`). La app se puede empezar
-   a escribir hoy contra ese formato, mockeado, sin la placa.
+1. **El cambio de placa es una línea.** `config.h` tiene `BOARD_NANO` /
+   `BOARD_ESP32`: cambia pines, rango del ADC y profundidad del undo. La lógica
+   de tanteo (`padel_score.cpp`) no tiene una sola línea de Arduino, así que
+   compila igual en las dos. El arnés `tests/run_checks.sh` verifica en cada
+   cambio que las **6 combinaciones** de placa × perfil siguen compilando.
+2. El estado del partido es un **único struct serializable** (`MatchState`, 15 bytes).
+3. El **contrato JSON ya está congelado** (`net_stub.h`), incluido el campo `sit`
+   del indicador de punto de juego/set/partido. La app se puede empezar a
+   escribir hoy contra ese formato, mockeado, sin la placa.
 4. `publishState()` es el único punto de salida de datos. Hoy escribe en `Serial`;
-   mañana además hace `ws.textAll(buf)`. Una línea.
+   mañana además hace `ws.textAll(buf)`. Una línea. (En AVR imprime campo por
+   campo para no gastar 200 bytes de pila; en ESP32 arma el string, que es el que
+   se manda por WebSocket. Las dos ramas producen el mismo JSON.)
 
 ## Contrato de datos (ya definido)
 
@@ -22,6 +29,8 @@ Estado que publica el cartel en cada cambio:
   "games":   [3, 2],
   "sets":    [1, 0],
   "serving": 0,               // 0 = equipo A, 1 = equipo B
+  "sit":     ["set", "none"], // "none" | "game" | "set" | "match"
+                              // estas a un punto de ganar el juego/set/partido
   "winner":  -1,              // -1 sin ganador, 0 o 1
   "n":       47               // puntos jugados (para detectar mensajes perdidos)
 }
@@ -39,6 +48,13 @@ Comandos que la app le manda al cartel (mismo canal, WebSocket):
 ```
 
 ## Fases
+
+### v1.0 → v1.1 — Pasar del Nano al ESP32
+
+Único paso de hardware: cambiar la placa y mover los pines. Al ser el ESP32 de
+3.3 V hay que agregar el level shifter 74AHCT125 para el dato de la tira y un
+divisor 1k/2k en cada ECHO de los HC-SR04 (en el Nano iban directo). Firmware:
+comentar `BOARD_NANO`, descomentar `BOARD_ESP32`.
 
 ### v1.1 — App web sin internet (el paso más barato y el más útil)
 

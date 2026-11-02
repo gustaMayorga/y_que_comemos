@@ -1,31 +1,34 @@
 # 03 - Reglas del partido, máquina de estados y firmware
 
-## 1. Qué cuenta el tanteador
+## 1. Qué muestra el tanteador
 
 | Nivel | Cómo se muestra | Valores |
 |---|---|---|
-| Puntos | 2 dígitos grandes rojos | ` 0`, `15`, `30`, `40`, `Ad` |
-| Puntos en tie break | los mismos 2 dígitos | `0`…`12`… (numérico) |
-| Games | 1 dígito ámbar | `0`…`7` |
-| Sets ganados | dots amarillos | hasta 3 |
-| Saque | el dot de set libre, en verde | equipo A o B |
-| Partido terminado | ganador muestra `Po`, perdedor `--` | + animación verde |
+| Puntos | 4 dígitos grandes rojos (2 por equipo) | ` 0`, `15`, `30`, `40`, `Ad` |
+| Puntos en tie break | los mismos dígitos | `0`…`12`… (numérico) |
+| Juegos | 1 dígito ámbar por equipo | `0`…`7` |
+| Sets ganados | 1 dígito amarillo por equipo | `0`…`3` |
+| Saque | flecha verde al centro, apuntando al equipo que saca | |
+| Punto de juego | triángulo **cyan** al centro | |
+| Punto de set | triángulo **amarillo** al centro | |
+| Punto de partido | triángulo **rojo titilando** al centro | |
+| Partido terminado | el ganador muestra `Po`, el otro `--` | + animación verde |
 
 ## 2. Reglas implementadas (`padel_score.cpp`)
 
-Configurables en `config.h`, y en la v2 desde la app sin recompilar:
+Configurables en `config.h`, y en la fase 2 desde la app sin recompilar:
 
 - **Punto de oro** (`DEFAULT_GOLDEN_POINT = true`): en 40-40 el siguiente punto
   gana el juego. Es el formato habitual de club y de la World Padel Tour.
-  Poniéndolo en `false` se juega con **ventajas** (40-40 → `Ad` → si el rival
-  gana el punto vuelve a 40-40).
-- **Set a 6 games con 2 de diferencia**. 7-5 cierra el set. 6-6 va a **tie break
+  Poniéndolo en `false` se juega con **ventajas**: 40-40 → `Ad` → si el rival
+  gana el punto vuelve a 40-40.
+- **Set a 6 juegos con 2 de diferencia**. 7-5 cierra el set. 6-6 va a **tie break
   a 7 con 2 de diferencia** (`DEFAULT_TIEBREAK`); si se desactiva, el set sigue
   hasta los 2 de diferencia.
 - **Partido al mejor de 3 sets** (`DEFAULT_SETS_TO_WIN = 2`). Para partidos
   cortos de club, poner `1`.
 - **Saque**: cambia al cerrarse cada juego, y en el tie break al primer punto y
-  después cada 2 puntos. Es informativo, se puede corregir a mano (CH3 largo).
+  después cada 2 puntos. Se puede corregir a mano (CH3 largo).
 - Terminado el partido no se aceptan más puntos (suena un beep grave).
 
 ### Diagrama de estados
@@ -54,39 +57,73 @@ Configurables en `config.h`, y en la v2 desde la app sin recompilar:
      PHASE_MATCH_OVER
 ```
 
-El estado completo vive en un único `struct MatchState` (28 bytes). Eso hace que
-tres cosas sean triviales:
+## 3. El indicador de "estás a un punto de..."
 
-- **UNDO real**: antes de cada punto se guarda una copia del struct en un buffer
-  circular de 16. Deshacer es copiar hacia atrás, no "restar un punto" (que sería
-  incorrecto cuando el punto cerró un juego o un set).
-- **Serialización**: `scoreToJson()` en `net_stub.h` lo convierte al JSON que va
-  a consumir la app. El contrato ya está definido hoy para no reescribir nada después.
-- **Persistencia** (fase 2): guardar el struct en NVS cada punto permite que si se
-  corta la alimentación el partido se retome donde estaba.
+Terminología, porque es fácil mezclarla:
 
-## 3. Estructura del firmware
+| Término | Qué es | Dónde se ve |
+|---|---|---|
+| **Ventaja** (`Ad`) | sólo sin punto de oro: ganaste el punto estando 40-40 | dígitos de puntos |
+| **Punto de juego** | estás a un punto de ganar el **juego** | triángulo cyan |
+| **Punto de quiebre** | punto de juego **con el rival al saque** | expuesto en la API (`isBreakPoint`) |
+| **Punto de set** | estás a un punto de ganar el **set** | triángulo amarillo |
+| **Punto de partido** | estás a un punto de ganar el **partido** | triángulo rojo titilando |
+
+Cómo se calcula, que es la parte elegante: **no hay una segunda copia de las
+reglas**. Se simula el próximo punto con la misma función de transición que hace
+avanzar el partido:
+
+```c
+Situation ScoreEngine::situation(uint8_t team) const {
+  MatchState tmp = s_;                  // copia de 15 bytes
+  uint8_t f = 0;
+  applyPoint(tmp, r_, team, &f);        // MISMA funcion que usa addPoint()
+  if (f & FLAG_MATCH) return SIT_MATCH_POINT;
+  if (f & FLAG_SET)   return SIT_SET_POINT;
+  if (f & FLAG_GAME)  return SIT_GAME_POINT;
+  return SIT_NONE;
+}
+```
+
+Consecuencia: si mañana cambian las reglas (punto de oro, sets al mejor de 1, tie
+break desactivado), el aviso se ajusta solo y **no se puede desincronizar** de lo
+que realmente pasa. Hay un test que verifica que la simulación no modifica el
+partido.
+
+Caso que vale la pena entender: con **punto de oro**, en 40-40 los **dos** avisos
+se encienden, porque los dos equipos están a un punto de ganar el juego. Es
+correcto, y visualmente queda muy bien.
+
+## 4. Estructura del firmware
 
 ```
 firmware/padel_scoreboard/
-├── padel_scoreboard.ino   setup/loop, mapeo de eventos → acciones, feedback
-├── config.h               TODO lo configurable: pines, geometría, colores, reglas
+├── padel_scoreboard.ino   setup/loop, eventos → acciones, feedback sonoro y visual
+├── config.h               TODO lo configurable: PLACA, perfil de armado, pines,
+│                          geometría, colores, reglas, umbrales
 ├── padel_score.h/.cpp     máquina de estados del tanteo (cero dependencias de Arduino)
-├── display7seg.h/.cpp     glifos de 7 segmentos, render sobre FastLED, animaciones
+├── display7seg.h/.cpp     glifos de 7 segmentos, iconos, render sobre FastLED, animaciones
 ├── inputs.h/.cpp          HC-SR04 con antirrebote de gesto + pulsadores corto/largo
 └── net_stub.h             serialización a JSON + punto de enganche del WiFi (apagado)
 ```
 
-La separación no es cosmética: `padel_score.cpp` **se compila y testea en la PC**,
-sin placa (`tests/test_score.cpp`, 9 casos: progresión, punto de oro, ventajas,
-6-0, 7-5, tie break 8-6, mejor de 3, undo, saque).
+La separación no es cosmética: `padel_score.cpp` **se compila y se testea en la
+PC**, sin placa.
 
-```bash
-g++ -std=c++17 tests/test_score.cpp firmware/padel_scoreboard/padel_score.cpp \
-    -o /tmp/test_score && /tmp/test_score
+### Dos interruptores en `config.h`
+
+```c
+#define BOARD_NANO       // o BOARD_ESP32  -> cambia pines, ADC, profundidad de undo
+#define LAYOUT_DEMO      // o LAYOUT_BENCH / LAYOUT_FULL -> cambia LEDs por segmento
 ```
 
-## 4. Controles
+| Perfil | LEDs | Tira a 60 LED/m | Para qué |
+|---|---|---|---|
+| `LAYOUT_BENCH` | 60 | 1.0 m exacto | probar toda la lógica en el escritorio |
+| `LAYOUT_DEMO` | 190 | 3.2 m | demo jugable en cancha |
+| `LAYOUT_FULL` | 278 | 4.7 m | cartel definitivo |
+
+## 5. Controles
 
 | Acción | Control remoto | Sensor de paleta | Botón de la caja |
 |---|---|---|---|
@@ -103,9 +140,9 @@ Feedback de cada acción:
 - juego ganado → 2 flashes ámbar + beep
 - set ganado → 4 flashes amarillos + beep largo
 - partido ganado → 8 flashes verdes + `Po` en el display del ganador
-- undo → beep medio; acción inválida → beep grave
+- deshacer → beep medio; acción inválida → beep grave
 
-## 5. Antirrebote del gesto de paleta
+## 6. Antirrebote del gesto de paleta
 
 El problema real de un sensor de proximidad en una cancha no es detectar: es
 **no detectar de más**. Una paleta apoyada contra el cartel, o un jugador que
@@ -117,27 +154,69 @@ pasa caminando, sumarían 20 puntos.
      │                   (se retira antes)                       ▼
      │                          │                            LOCKOUT 2.5 s
      │                          ▼                                │
-     └──────────────────────  ARMED                              ▼
-     └────────────(dist ≥ 35 cm)───────────────────────  WAIT_CLEAR
+     ├──────────────────────  ARMED                              ▼
+     └────────────(dist ≥ 35 cm)─────────────────────────  WAIT_CLEAR
 ```
 
 Tres barreras en cadena: **tiempo de sostén**, **bloqueo temporal** e **histéresis
 de re-armado** (hay que alejar la paleta más de 35 cm para que vuelva a contar).
-Los cuatro umbrales están en `config.h` y conviene calibrarlos en la cancha, no
-en el taller.
+Los umbrales están en `config.h` y conviene calibrarlos **en la cancha**, no en el
+taller.
 
-## 6. Dependencias y cómo compilar
+## 7. El undo
 
-- Arduino IDE 2.x o arduino-cli
-- Board package: **esp32 by Espressif** (Boards Manager) → placa "ESP32 Dev Module"
+Antes de cada punto se guarda una copia del `MatchState` completo en un buffer
+circular (8 niveles en Nano, 16 en ESP32). Deshacer es **copiar hacia atrás**, no
+"restar un punto" — que sería incorrecto cuando el punto cerró un juego, un set o
+el partido.
+
+## 8. Chequeos que corren sin placa
+
+```bash
+./tests/run_checks.sh
+```
+
+Hace dos cosas:
+
+1. **Tests de la máquina de estados** (`tests/test_score.cpp`): progresión de
+   puntos, punto de oro, ventajas, 6-0, 7-5, tie break 8-6, partido al mejor de 3,
+   undo, cambio de saque, punto de juego/set/partido, punto de quiebre, que la
+   simulación no altere el estado, y los flags de la transición pura.
+2. **Compilación del sketch completo en las 6 combinaciones** de placa × perfil,
+   usando stubs de Arduino y FastLED (`tests/stub/`).
+
+Los stubs **no** reemplazan al compilador de AVR: no dicen el uso real de RAM ni
+flash. Para eso hay que compilar con `arduino-cli` (ver abajo). El presupuesto de
+RAM estimado está en `01-hardware-bom.md` §4.
+
+## 9. Dependencias y cómo compilar para el Nano
+
+- Arduino IDE 2.x o `arduino-cli`
 - Librería: **FastLED** (≥ 3.6) — la única dependencia externa
 
 ```bash
-arduino-cli core install esp32:esp32
+arduino-cli core install arduino:avr
 arduino-cli lib install FastLED
-arduino-cli compile --fqbn esp32:esp32:esp32doit-devkit-v1 firmware/padel_scoreboard
-arduino-cli upload  --fqbn esp32:esp32:esp32doit-devkit-v1 -p /dev/ttyUSB0 firmware/padel_scoreboard
+arduino-cli compile --fqbn arduino:avr:nano firmware/padel_scoreboard
+arduino-cli upload  --fqbn arduino:avr:nano -p /dev/ttyUSB0 firmware/padel_scoreboard
 ```
 
+Si el Nano es un clon con chip CH340 y el bootloader viejo:
+`--fqbn arduino:avr:nano:cpu=atmega328old`.
+
+Para la fase 2 con ESP32: cambiar a `BOARD_ESP32` en `config.h` y usar
+`--fqbn esp32:esp32:esp32doit-devkit-v1`.
+
+**Verificar el uso de RAM al compilar** (es el número que importa en un Nano):
+
+```
+Sketch uses XXXXX bytes (NN%) of program storage space. Maximum is 30720 bytes.
+Global variables use XXXX bytes (NN%) of dynamic memory...  Maximum is 2048 bytes.
+```
+
+Si "Global variables" pasa de ~1500 bytes, bajá a `LAYOUT_DEMO` o reducí
+`UNDO_DEPTH`.
+
 Monitor serie a 115200: cada cambio de tanteo imprime el JSON del estado. Sirve
-para probar toda la lógica **antes** de tener un solo LED soldado.
+para probar **toda** la lógica —incluidos los controles y los sensores— antes de
+soldar un solo LED.

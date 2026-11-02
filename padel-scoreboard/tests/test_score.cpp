@@ -24,6 +24,7 @@ int main() {
     e.addPoint(0); CHECK(e.state().games[0] == 1, "40 -> juego");
     CHECK(e.state().points[0] == P_0 && e.state().points[1] == P_0, "puntos reset tras juego");
     CHECK(e.lastWonGame(), "flag de juego ganado");
+    CHECK(!e.lastWonSet() && !e.lastWonMatch(), "no marca set ni partido");
   }
 
   // --- 2) punto de oro: 40-40 lo gana el siguiente punto ---
@@ -98,6 +99,67 @@ int main() {
     const uint8_t s0 = e.state().serving;
     pts(e, 0, 4);
     CHECK(e.state().serving == (s0 ^ 1), "el saque cambia de equipo");
+  }
+
+  // --- 10) indicador central: punto de juego / set / partido ---
+  { ScoreEngine e; e.begin(rulesGolden());
+    CHECK(e.situation(0) == SIT_NONE, "0-0 no es punto de nada");
+    pts(e, 0, 3);                                 // 40-0
+    CHECK(e.situation(0) == SIT_GAME_POINT, "40-0 es punto de juego");
+    CHECK(e.situation(1) == SIT_NONE, "el rival no tiene punto de juego");
+  }
+  { ScoreEngine e; e.begin(rulesGolden());
+    for (int g = 0; g < 5; g++) pts(e, 0, 4);     // 5-0 en games
+    pts(e, 0, 3);                                 // 40-0 en el 6to juego
+    CHECK(e.situation(0) == SIT_SET_POINT, "5-0 y 40-0 es punto de set");
+  }
+  { ScoreEngine e; e.begin(rulesGolden());
+    for (int g = 0; g < 6; g++) pts(e, 0, 4);     // gana el 1er set
+    for (int g = 0; g < 5; g++) pts(e, 0, 4);     // 5-0 en el 2do
+    pts(e, 0, 3);                                 // 40-0
+    CHECK(e.situation(0) == SIT_MATCH_POINT, "1 set y 5-0 40-0 es punto de partido");
+  }
+  { // punto de oro: en 40-40 los DOS equipos tienen punto de juego
+    ScoreEngine e; e.begin(rulesGolden());
+    pts(e, 0, 3); pts(e, 1, 3);
+    CHECK(e.situation(0) == SIT_GAME_POINT && e.situation(1) == SIT_GAME_POINT,
+          "40-40 con punto de oro: ambos tienen punto de juego");
+  }
+  { // con ventajas, en 40-40 nadie esta a un punto del juego
+    ScoreEngine e; e.begin(rulesAdv());
+    pts(e, 0, 3); pts(e, 1, 3);
+    CHECK(e.situation(0) == SIT_NONE && e.situation(1) == SIT_NONE,
+          "40-40 con ventajas: todavia no es punto de juego");
+    e.addPoint(0);                                // ventaja A
+    CHECK(e.situation(0) == SIT_GAME_POINT, "con ventaja si es punto de juego");
+  }
+  { // punto de quiebre = punto de juego con el rival al saque
+    ScoreEngine e; e.begin(rulesGolden());
+    e.setServing(1);
+    pts(e, 0, 3);                                 // 40-0 contra el saque de B
+    CHECK(e.isBreakPoint(0), "40-0 contra el saque es punto de quiebre");
+    CHECK(!e.isBreakPoint(1), "el que saca no tiene punto de quiebre");
+  }
+
+  // --- 11) la simulacion NO debe modificar el partido ---
+  { ScoreEngine e; e.begin(rulesGolden());
+    pts(e, 0, 3);
+    const MatchState before = e.state();
+    for (int i = 0; i < 5; i++) { e.situation(0); e.situation(1); e.isBreakPoint(0); }
+    const MatchState after = e.state();
+    CHECK(before.points[0] == after.points[0] && before.games[0] == after.games[0] &&
+          before.pointCount == after.pointCount,
+          "situation() no altera el estado");
+  }
+
+  // --- 12) flags de la transicion pura ---
+  { MatchState s{}; s.phase = PHASE_GAME; s.winner = 0xFF;
+    MatchRules r = rulesGolden();
+    uint8_t f = 0;
+    for (int i = 0; i < 3; i++) applyPoint(s, r, 0, &f);
+    CHECK(f == 0, "sin flags antes de cerrar el juego");
+    applyPoint(s, r, 0, &f);
+    CHECK((f & FLAG_GAME) && !(f & FLAG_SET), "flag de juego sin flag de set");
   }
 
   printf(fails ? "\n%d test(s) FALLARON\n" : "\nTodos los tests OK\n", fails);

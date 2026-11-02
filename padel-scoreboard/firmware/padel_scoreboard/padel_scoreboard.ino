@@ -1,15 +1,22 @@
 // ============================================================================
 //  TANTEADOR DE PADEL - MVP
-//  Cerebro: ESP32 DevKit v1   |   Display: 7 segmentos con tira WS2812B
-//  Entradas: 2 sensores de proximidad de paleta + 2 controles RF 433 MHz
-//  Alimentacion: power bank 5 V / USB-C PD (ver docs/01-hardware-bom.md)
 //
-//  Mapa de controles (receptor RF de 4 canales, 2 llaveros identicos):
-//    CH1 (boton A del llavero del Equipo A) -> +1 punto Equipo A
-//    CH2 (boton B del llavero del Equipo B) -> +1 punto Equipo B
+//  Cerebro:   Arduino Nano (demo actual)  /  ESP32 DevKit v1 (fase 2, WiFi)
+//             -> se elige en config.h con BOARD_NANO / BOARD_ESP32
+//  Display:   7 segmentos con tira WS2812B
+//               4 digitos GRANDES  -> puntos (2 por equipo)
+//               2 digitos chicos   -> juegos (1 por equipo)
+//               2 digitos mini     -> sets   (1 por equipo)
+//               4 iconos al centro -> flecha de saque A/B + aviso de punto A/B
+//  Entradas:  2 sensores de proximidad de paleta + 2 controles RF 433 MHz
+//  Energia:   power bank 5 V / USB-C (ver docs/01-hardware-bom.md)
+//
+//  Controles (receptor RF de 4 canales, 2 llaveros identicos):
+//    CH1 (boton A, llavero Equipo A) -> +1 punto Equipo A
+//    CH2 (boton B, llavero Equipo B) -> +1 punto Equipo B
 //    CH3 corto -> deshacer ultimo punto   |  CH3 largo -> cambiar saque
 //    CH4 corto -> ciclar brillo           |  CH4 2 s   -> reset del partido
-//  El boton local de la caja replica CH4.
+//  El boton de la caja replica CH4.
 // ============================================================================
 
 #include <FastLED.h>
@@ -25,9 +32,10 @@ ProximityCounter proxA, proxB;
 Button           rfPointA, rfPointB, rfUndo, rfMode, btnLocal;
 
 static const uint8_t kBrightSteps[3] = { BRIGHTNESS_DAY, BRIGHTNESS_SHADE, BRIGHTNESS_NIGHT };
-static uint8_t  brightIdx  = 0;
-static bool     showServe  = true;
-static bool     dirty      = true;
+static uint8_t   brightIdx = 0;
+static bool      showServe = true;
+static bool      dirty     = true;
+static uint32_t  tBlink    = 0;
 
 // ------------------------------- buzzer ------------------------------------
 #if ENABLE_BUZZER
@@ -46,24 +54,41 @@ static bool     dirty      = true;
   static void beep(uint16_t, uint16_t) {}
 #endif
 
+// --------------------------- helpers de presentacion -----------------------
+static void currentSituations(Situation out[2]) {
+  out[0] = score.situation(0);
+  out[1] = score.situation(1);
+}
+
+static void draw() {
+  Situation sit[2];
+  currentSituations(sit);
+  display.render(score.state(), sit, showServe);
+}
+
+static void publish() {
+  Situation sit[2];
+  currentSituations(sit);
+  publishState(score.state(), sit);
+}
+
 // --------------------------- acciones de alto nivel ------------------------
 static void onPoint(uint8_t team) {
-  if (!score.addPoint(team)) { beep(300, 200); return; }   // partido terminado
-  dirty = true;
+  if (!score.addPoint(team)) { beep(300, 200); return; }   // partido ya terminado
   beep(1800, 60);
-  display.render(score.state(), showServe);
+  draw();                                                  // estado nuevo a la vista
 
-  if (score.matchOver())        { beep(2400, 400); display.animMatchWon(score.state().winner); }
+  if (score.lastWonMatch())     { beep(2400, 400); display.animMatchWon(score.state().winner); }
   else if (score.lastWonSet())  { beep(2200, 250); display.animSetWon(team); }
   else if (score.lastWonGame()) { beep(2000, 150); display.animGameWon(team); }
   else                          { display.flashTeam(team, COLOR_POINTS, FEEDBACK_FLASH_MS); }
 
-  publishState(score.state());
+  publish();
   dirty = true;
 }
 
 static void onUndo() {
-  if (score.undo()) { beep(900, 80); publishState(score.state()); }
+  if (score.undo()) { beep(900, 80); publish(); }
   else              { beep(350, 150); }
   dirty = true;
 }
@@ -71,12 +96,12 @@ static void onUndo() {
 static void onReset() {
   score.resetMatch();
   beep(1200, 100); delay(60); beep(1600, 100);
-  publishState(score.state());
+  publish();
   dirty = true;
 }
 
 static void cycleBrightness() {
-  brightIdx = (brightIdx + 1) % 3;
+  brightIdx = (uint8_t)((brightIdx + 1) % 3);
   display.setBrightness(kBrightSteps[brightIdx]);
   beep(1500, 40);
   dirty = true;
@@ -87,10 +112,10 @@ static void autoBrightness() {
   static uint32_t t = 0;
   if (millis() - t < 5000) return;
   t = millis();
-  const int lux = analogRead(PIN_LDR);              // 0..4095
-  const uint8_t b = lux > 2800 ? BRIGHTNESS_DAY
-                  : lux > 1200 ? BRIGHTNESS_SHADE
-                               : BRIGHTNESS_NIGHT;
+  const long lux = analogRead(PIN_LDR);                     // 0..ADC_MAX
+  const uint8_t b = lux > (ADC_MAX * 7L / 10) ? BRIGHTNESS_DAY
+                  : lux > (ADC_MAX * 3L / 10) ? BRIGHTNESS_SHADE
+                                              : BRIGHTNESS_NIGHT;
   if (b != display.brightness()) { display.setBrightness(b); dirty = true; }
 }
 #endif
@@ -99,8 +124,11 @@ static void autoBrightness() {
 void setup() {
   Serial.begin(115200);
   delay(200);
-  Serial.println(F("\n[padel] tanteador MVP arrancando"));
-  Serial.printf("[padel] LEDs totales: %d (%d por equipo)\n", NUM_LEDS, LEDS_PER_TEAM);
+  Serial.println(F("[padel] tanteador MVP"));
+  Serial.print(F("[padel] LEDs: "));       Serial.print(NUM_LEDS);
+  Serial.print(F(" (por equipo: "));       Serial.print(LEDS_PER_TEAM);
+  Serial.print(F(", centro: "));           Serial.print(LEDS_CENTER);
+  Serial.println(F(")"));
 
   beepInit();
   display.begin();
@@ -125,12 +153,13 @@ void setup() {
   btnLocal.begin(PIN_BTN_LOCAL, false);
 
   beep(1400, 80);
-  publishState(score.state());
+  draw();
+  publish();
 }
 
 // ------------------------------------ loop ---------------------------------
 void loop() {
-  // --- controles RF + boton local ---
+  // --- controles RF + boton de la caja ---
   rfPointA.poll(); rfPointB.poll(); rfUndo.poll(); rfMode.poll(); btnLocal.poll();
 
   if (rfPointA.pressedShort() || rfPointA.pressedLong()) onPoint(0);
@@ -150,8 +179,10 @@ void loop() {
   autoBrightness();
 #endif
 
-  if (dirty) {
-    display.render(score.state(), showServe);
-    dirty = false;
+  // --- refresco ---
+  if (dirty) { draw(); dirty = false; tBlink = millis(); }
+  else if (display.isBlinking() && (millis() - tBlink) >= (ICON_BLINK_MS / 2)) {
+    display.refresh();                    // titileo del aviso de punto de partido
+    tBlink = millis();
   }
 }

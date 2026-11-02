@@ -2,73 +2,106 @@
 
 Cartel marcador para cancha de pádel, legible a pleno sol, con conteo por
 **proximidad de paleta** (izquierda / derecha) y por **control remoto** (uno por
-equipo). Cerebro ESP32, display de 7 segmentos hecho con tira LED y difusor,
-alimentación por power bank o cargador USB-C.
+equipo). Demo sobre **Arduino Nano**, display de 7 segmentos hecho con tira LED y
+difusor, alimentación por power bank o cargador USB.
 
-> Nota: este proyecto vive en una carpeta aparte dentro del repo `y_que_comemos`
-> porque es donde se arrancó. Es autocontenido: se puede mover a su propio repo
-> moviendo solo `padel-scoreboard/`.
+> Este proyecto vive en una carpeta aparte dentro del repo `y_que_comemos` porque
+> es donde se arrancó. Es autocontenido: se mueve a su propio repo moviendo sólo
+> `padel-scoreboard/`.
+
+## Qué muestra
+
+```
+ ┌───────────────────────────────┬─────────┬───────────────────────────────┐
+ │  EQUIPO A                     │  SAQUE  │                     EQUIPO B  │
+ │    ┌──────┐ ┌──────┐          │ ◀     ▶ │          ┌──────┐ ┌──────┐    │
+ │    │  4   │ │  0   │  PUNTOS  │  PUNTO  │  PUNTOS  │  3   │ │  0   │    │
+ │    └──────┘ └──────┘          │ ▲     ▲ │          └──────┘ └──────┘    │
+ │      [3]      [1]             │         │            [2]      [0]       │
+ │     JUEGOS   SETS             │         │          JUEGOS    SETS       │
+ └───────────────────────────────┴─────────┴───────────────────────────────┘
+```
+
+- **4 dígitos grandes** para los puntos (2 por equipo): ` 0` `15` `30` `40` `Ad`
+- **2 dígitos chicos** para los juegos, **2 mini** para los sets
+- **Flechas de saque** al centro: se enciende la del equipo que saca
+- **Aviso de punto** al centro, con el color diciendo de qué punto se trata:
+  🔵 punto de juego · 🟡 punto de set · 🔴 punto de partido (titilando)
 
 ## Qué hace el MVP
 
-- Tanteo completo de pádel: **puntos** (0/15/30/40/Ad), **games**, **sets**,
-  **tie break**, **punto de oro** configurable, partido al mejor de 3.
+- Tanteo completo de pádel: puntos, juegos, sets, **tie break**, **punto de oro**
+  configurable (o ventajas), 7-5, partido al mejor de 3, control del saque.
 - **Dos formas de contar**, las dos activas a la vez:
   - acercar la paleta al sensor **izquierdo** (Equipo A) o **derecho** (Equipo B);
   - apretar el botón del **control remoto de cada equipo** (433 MHz).
-- **Deshacer** el último punto (de verdad: restaura el estado, incluso si ese
-  punto había cerrado un juego o un set), cambiar el saque, 3 niveles de brillo,
-  reset del partido.
-- Confirmación sonora y visual de cada punto, juego, set y partido.
+- **Deshacer** de verdad: restaura el estado anterior, incluso si ese punto había
+  cerrado un juego, un set o el partido.
+- Cambiar el saque, 3 niveles de brillo, reset del partido, confirmación sonora
+  y visual de cada punto / juego / set / partido.
 - **Límite de corriente por firmware**: funciona con un power bank de 5 V / 3 A
-  sin que se corte, ~5–6 h de autonomía con 20 000 mAh.
+  sin que se corte. 6–7 h de autonomía con 20 000 mAh.
 - WiFi **preparado y apagado**: el estado ya se serializa al JSON definitivo que
-  va a consumir la app.
+  va a consumir la app. Pasar a ESP32 es cambiar una línea de `config.h`.
 
 ## Arranque rápido
 
 ```bash
-# 1) Validar la lógica de tanteo sin hardware
-g++ -std=c++17 tests/test_score.cpp firmware/padel_scoreboard/padel_score.cpp \
-    -o /tmp/test_score && /tmp/test_score
+# 1) Validar la logica y que compilen las 6 variantes (placa x perfil), sin placa
+./tests/run_checks.sh
 
-# 2) Compilar y cargar el firmware
-arduino-cli core install esp32:esp32
+# 2) Compilar y cargar en el Nano
+arduino-cli core install arduino:avr
 arduino-cli lib install FastLED
-arduino-cli compile --fqbn esp32:esp32:esp32doit-devkit-v1 firmware/padel_scoreboard
-arduino-cli upload  --fqbn esp32:esp32:esp32doit-devkit-v1 -p /dev/ttyUSB0 firmware/padel_scoreboard
+arduino-cli compile --fqbn arduino:avr:nano firmware/padel_scoreboard
+arduino-cli upload  --fqbn arduino:avr:nano -p /dev/ttyUSB0 firmware/padel_scoreboard
 ```
 
 Con el monitor serie a 115200 se puede probar **toda** la lógica (incluidos los
-controles y los sensores) antes de soldar un solo LED.
+controles y los sensores) antes de soldar un solo LED: cada punto imprime el
+estado del partido en JSON.
+
+## Tres perfiles de armado
+
+Un `#define` en `config.h` cambia el tamaño de todo:
+
+| Perfil | LEDs | Tira a 60 LED/m | Dígito de puntos | Para qué |
+|---|---|---|---|---|
+| `LAYOUT_BENCH` | **60** | **1.0 m exacto** | 1 LED/segmento | probar todo en el escritorio |
+| `LAYOUT_DEMO` | **190** | 3.2 m | ~155 mm, legible a 45 m | demo jugable en cancha |
+| `LAYOUT_FULL` | **278** | 4.7 m | ~230 mm, legible a 80 m | cartel definitivo |
+
+Con **1 metro de tira** ya funciona el sistema completo. Con **sólo el Nano y dos
+botones** ya se valida toda la lógica por el puerto serie.
 
 ## Documentación
 
 | Doc | Contenido |
 |---|---|
-| [`docs/01-hardware-bom.md`](docs/01-hardware-bom.md) | BOM con precios (~100 USD), por qué ESP32, presupuesto de corriente, cableado completo, los dos controles, los sensores |
-| [`docs/02-display-7seg-led.md`](docs/02-display-7seg-led.md) | Geometría del dígito, layout del cartel, armado en 4 capas, **los 5 trucos para que se lea a pleno sol**, orden de cableado |
-| [`docs/03-reglas-y-firmware.md`](docs/03-reglas-y-firmware.md) | Reglas implementadas, diagrama de estados, estructura del firmware, controles, antirrebote del gesto de paleta |
-| [`docs/04-roadmap-wifi-app.md`](docs/04-roadmap-wifi-app.md) | Contrato JSON ya congelado, app web en modo AP, remotos ESP-NOW, OTA, producto |
-
-## Cifras del diseño
-
-| | |
-|---|---|
-| LEDs totales | 236 (118 por equipo) |
-| Altura del dígito de puntos | ~230 mm → legible a 70–90 m |
-| Consumo típico / peor caso | ~2.6 A / 4.7 A a 5 V (limitado a 2.6 A por firmware) |
-| Autonomía con power bank 20 000 mAh | 5–6 h a brillo de sol, 9–10 h en sombra |
-| Tamaño del frente | ~55 × 40 cm |
-| Costo del MVP | ~80 USD + power bank |
+| [`docs/01-hardware-bom.md`](docs/01-hardware-bom.md) | BOM (~55 USD la demo), Nano vs ESP32, presupuesto de corriente **y de RAM**, cableado completo con pines del Nano |
+| [`docs/02-display-7seg-led.md`](docs/02-display-7seg-led.md) | Layout, geometría del dígito, los iconos del centro, armado en 4 capas, **los 5 trucos para que se lea a pleno sol**, orden de cableado |
+| [`docs/03-reglas-y-firmware.md`](docs/03-reglas-y-firmware.md) | Reglas, diagrama de estados, cómo se calcula el aviso de punto, estructura del firmware, controles, antirrebote |
+| [`docs/04-roadmap-wifi-app.md`](docs/04-roadmap-wifi-app.md) | Contrato JSON congelado, paso a ESP32, app web en modo AP, remotos ESP-NOW, OTA |
+| [`docs/05-inventario-demo-nano.md`](docs/05-inventario-demo-nano.md) | **Checklist de qué componentes revisar** y con qué se puede sustituir cada cosa |
 
 ## Orden de trabajo sugerido
 
-1. **Protoboard**: ESP32 + 1 dígito armado con 42 LEDs + 1 HC-SR04 + el receptor
-   RF. Verificar `animBoot()` y el gesto de paleta. (1 tarde)
-2. **Calibrar en la cancha** los umbrales de proximidad de `config.h` con la
-   paleta real y con gente pasando. Esto no se puede hacer en el taller.
-3. **Armar los 6 dígitos** con tabiques y difusor. Es el 70 % del tiempo total.
-4. **Probar al sol** con y sin el filtro oscuro: la diferencia justifica los 9 USD.
-5. Cerrar la caja, colgar en la reja, jugar un partido completo.
-6. Recién entonces: WiFi y app (v1.1).
+1. **Revisar el inventario** ([doc 05](docs/05-inventario-demo-nano.md)) y ajustar
+   `config.h` a lo que haya.
+2. **Protoboard con `LAYOUT_BENCH`**: Nano + 1 m de tira + 2 botones. Partido
+   completo de punta a punta. (1 tarde)
+3. **Calibrar en la cancha** los umbrales de proximidad con la paleta real y con
+   gente pasando. Esto no se puede hacer en el taller.
+4. **Armar los dígitos** de `LAYOUT_DEMO` con tabiques y difusor. Es el 70 % del
+   tiempo total.
+5. **Probar al sol** con y sin el filtro oscuro: la diferencia justifica los 9 USD.
+6. Cerrar la caja, colgar en la reja, jugar un partido completo.
+7. Recién entonces: ESP32, WiFi y app (v1.1).
+
+## Estado
+
+- ✅ Lógica de tanteo: 20+ casos de test, corren en la PC
+- ✅ Firmware completo: compila en las 6 combinaciones de placa × perfil
+- ⚠️ Uso de RAM del Nano: **estimado** (~49 % con `LAYOUT_DEMO`), falta confirmarlo
+  compilando con `arduino-cli` en una máquina con el toolchain de AVR
+- ⬜ Nada probado en hardware real todavía

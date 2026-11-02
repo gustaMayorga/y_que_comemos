@@ -1,7 +1,88 @@
 #include "padel_score.h"
 #include <string.h>
 
-#define HIST_CAP (sizeof(hist_) / sizeof(hist_[0]))
+#define HIST_CAP ((uint8_t)(sizeof(hist_) / sizeof(hist_[0])))
+
+// ============================ transicion pura ===============================
+
+static void awardSet(MatchState& s, const MatchRules& r, uint8_t team, uint8_t* f) {
+  *f |= FLAG_SET;
+  s.sets[team]++;
+  s.games[0] = s.games[1] = 0;
+  s.points[0] = s.points[1] = P_0;
+  s.tbPoints[0] = s.tbPoints[1] = 0;
+  s.phase = PHASE_GAME;
+
+  if (s.sets[team] >= r.setsToWin) {
+    s.phase  = PHASE_MATCH_OVER;
+    s.winner = team;
+    *f |= FLAG_MATCH;
+  }
+}
+
+static void awardGame(MatchState& s, const MatchRules& r, uint8_t team, uint8_t* f) {
+  *f |= FLAG_GAME;
+  s.points[0] = s.points[1] = P_0;
+  s.games[team]++;
+  s.serving ^= 1;                               // el saque pasa al otro equipo
+
+  const uint8_t g = s.games[team], go = s.games[team ^ 1];
+  if (g >= r.gamesPerSet && (g - go) >= 2)            { awardSet(s, r, team, f); return; }
+  if (g == r.gamesPerSet + 1 && go == r.gamesPerSet - 1) { awardSet(s, r, team, f); return; } // 7-5
+
+  if (r.tieBreak && s.games[0] == r.gamesPerSet && s.games[1] == r.gamesPerSet) {
+    s.phase = PHASE_TIEBREAK;                   // 6-6
+    s.tbPoints[0] = s.tbPoints[1] = 0;
+    s.points[0]   = s.points[1]   = P_0;
+  }
+}
+
+bool applyPoint(MatchState& s, const MatchRules& r, uint8_t team, uint8_t* flagsOut) {
+  uint8_t f = 0;
+  if (flagsOut) *flagsOut = 0;
+  if (s.phase == PHASE_MATCH_OVER) return false;
+
+  team &= 1;
+  const uint8_t other = team ^ 1;
+  s.pointCount++;
+
+  // ------------------------------- TIE BREAK -------------------------------
+  if (s.phase == PHASE_TIEBREAK) {
+    s.tbPoints[team]++;
+    const uint8_t a = s.tbPoints[team], b = s.tbPoints[other];
+    // El saque cambia al primer punto y despues cada 2 puntos.
+    if (((a + b) % 2) == 1) s.serving ^= 1;
+    if (a >= r.tiebreakTarget && (a - b) >= 2) {
+      s.games[team]++;                          // 7-6 en games
+      f |= FLAG_GAME;
+      awardSet(s, r, team, &f);
+    }
+    if (flagsOut) *flagsOut = f;
+    return true;
+  }
+
+  // ----------------------------- JUEGO NORMAL ------------------------------
+  uint8_t& p  = s.points[team];
+  uint8_t& po = s.points[other];
+
+  if (p == P_ADV) {                             // tenia ventaja -> gana el juego
+    awardGame(s, r, team, &f);
+  } else if (po == P_ADV) {                     // el rival tenia ventaja -> 40-40
+    po = P_40;
+  } else if (p == P_40 && po == P_40) {         // 40-40
+    if (r.goldenPoint) awardGame(s, r, team, &f);   // punto de oro
+    else               p = P_ADV;                   // ventaja
+  } else if (p == P_40) {                       // 40 contra <=30 -> juego
+    awardGame(s, r, team, &f);
+  } else {
+    p++;                                        // 0 -> 15 -> 30 -> 40
+  }
+
+  if (flagsOut) *flagsOut = f;
+  return true;
+}
+
+// ============================== ScoreEngine =================================
 
 void ScoreEngine::begin(const MatchRules& rules) {
   r_ = rules;
@@ -15,23 +96,21 @@ void ScoreEngine::resetMatch() {
   s_.serving = 0;
   histCount_ = 0;
   histHead_  = 0;
-  flagGame_  = false;
-  flagSet_   = false;
+  lastFlags_ = 0;
 }
 
 void ScoreEngine::push() {
   hist_[histHead_] = s_;
-  histHead_ = (histHead_ + 1) % HIST_CAP;
+  histHead_ = (uint8_t)((histHead_ + 1) % HIST_CAP);
   if (histCount_ < HIST_CAP) histCount_++;
 }
 
 bool ScoreEngine::undo() {
   if (histCount_ == 0) return false;
-  histHead_ = (histHead_ + HIST_CAP - 1) % HIST_CAP;
+  histHead_ = (uint8_t)((histHead_ + HIST_CAP - 1) % HIST_CAP);
   s_ = hist_[histHead_];
   histCount_--;
-  flagGame_ = false;
-  flagSet_  = false;
+  lastFlags_ = 0;
   return true;
 }
 
@@ -40,83 +119,26 @@ void ScoreEngine::toggleServing()          { s_.serving ^= 1; }
 
 bool ScoreEngine::addPoint(uint8_t team) {
   if (s_.phase == PHASE_MATCH_OVER) return false;
-  team &= 1;
-  const uint8_t other = team ^ 1;
-
   push();
-  flagGame_ = false;
-  flagSet_  = false;
-  s_.pointCount++;
-
-  // ----------------------------- TIE BREAK --------------------------------
-  if (s_.phase == PHASE_TIEBREAK) {
-    s_.tbPoints[team]++;
-    const uint8_t a = s_.tbPoints[team], b = s_.tbPoints[other];
-    // El saque cambia al primer punto y despues cada 2 puntos.
-    if (((a + b) % 2) == 1) s_.serving ^= 1;
-    if (a >= r_.tiebreakTarget && (a - b) >= 2) {
-      s_.games[team]++;          // 7-6 en games
-      awardSet(team);
-    }
-    return true;
+  const bool ok = applyPoint(s_, r_, team, &lastFlags_);
+  if (!ok && histCount_) {                      // no deberia pasar; no ensuciar el historial
+    histHead_ = (uint8_t)((histHead_ + HIST_CAP - 1) % HIST_CAP);
+    histCount_--;
   }
-
-  // ----------------------------- JUEGO NORMAL -----------------------------
-  uint8_t& p  = s_.points[team];
-  uint8_t& po = s_.points[other];
-
-  if (p == P_ADV) {                       // tenia ventaja -> gana el juego
-    awardGame(team);
-    return true;
-  }
-  if (po == P_ADV) {                      // el rival tenia ventaja -> vuelta a 40-40
-    po = P_40;
-    return true;
-  }
-  if (p == P_40 && po == P_40) {          // 40-40
-    if (r_.goldenPoint) awardGame(team);  // punto de oro
-    else                p = P_ADV;        // ventaja
-    return true;
-  }
-  if (p == P_40) {                        // 40 contra <=30 -> juego
-    awardGame(team);
-    return true;
-  }
-  p++;                                    // 0 -> 15 -> 30 -> 40
-  return true;
+  return ok;
 }
 
-void ScoreEngine::awardGame(uint8_t team) {
-  flagGame_ = true;
-  s_.points[0] = s_.points[1] = P_0;
-  s_.games[team]++;
-  s_.serving ^= 1;                        // el saque pasa al otro equipo
-
-  const uint8_t g = s_.games[team], go = s_.games[team ^ 1];
-  if (g >= r_.gamesPerSet && (g - go) >= 2) { awardSet(team); return; }
-  if (g == r_.gamesPerSet + 1 && go == r_.gamesPerSet - 1) { awardSet(team); return; } // 7-5
-  startTiebreakIfNeeded();
+Situation ScoreEngine::situation(uint8_t team) const {
+  if (s_.phase == PHASE_MATCH_OVER) return SIT_NONE;
+  MatchState tmp = s_;                          // 16 bytes en la pila
+  uint8_t f = 0;
+  applyPoint(tmp, r_, team, &f);
+  if (f & FLAG_MATCH) return SIT_MATCH_POINT;
+  if (f & FLAG_SET)   return SIT_SET_POINT;
+  if (f & FLAG_GAME)  return SIT_GAME_POINT;
+  return SIT_NONE;
 }
 
-void ScoreEngine::startTiebreakIfNeeded() {
-  if (!r_.tieBreak) return;
-  if (s_.games[0] == r_.gamesPerSet && s_.games[1] == r_.gamesPerSet) {
-    s_.phase = PHASE_TIEBREAK;
-    s_.tbPoints[0] = s_.tbPoints[1] = 0;
-    s_.points[0]   = s_.points[1]   = P_0;
-  }
-}
-
-void ScoreEngine::awardSet(uint8_t team) {
-  flagSet_ = true;
-  s_.sets[team]++;
-  s_.games[0] = s_.games[1] = 0;
-  s_.points[0] = s_.points[1] = P_0;
-  s_.tbPoints[0] = s_.tbPoints[1] = 0;
-  s_.phase = PHASE_GAME;
-
-  if (s_.sets[team] >= r_.setsToWin) {
-    s_.phase  = PHASE_MATCH_OVER;
-    s_.winner = team;
-  }
+bool ScoreEngine::isBreakPoint(uint8_t team) const {
+  return situation(team) != SIT_NONE && s_.serving == (uint8_t)(team ^ 1);
 }

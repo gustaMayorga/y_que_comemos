@@ -1,164 +1,209 @@
 # 01 - Hardware, BOM y alimentación
 
-## 1. Por qué ESP32 y no un Arduino UNO/Nano
+## 1. Placa: Nano para la demo, ESP32 para la versión con app
 
-Pediste "Arduino cerebro", y el Nano alcanza para el MVP. Pero pediste también
-**dejar pensada la conexión WiFi para la app**. Con un Nano eso obliga a sumar
-después un ESP8266/ESP32 como módem y reescribir la mitad del firmware.
+La demo se hace con **Arduino Nano**, como pediste. El firmware soporta las dos
+placas y se cambia con **una línea** en `config.h`:
 
-| | Arduino Nano | **ESP32 DevKit v1 (elegido)** |
+```c
+#define BOARD_NANO      // demo actual
+//#define BOARD_ESP32   // fase 2: habilita WiFi
+```
+
+| | **Arduino Nano (demo)** | ESP32 DevKit v1 (fase 2) |
 |---|---|---|
 | Precio | ~5 USD | ~6 USD |
-| WiFi / BLE | no | **sí, integrado** |
-| CPU / RAM | 16 MHz / 2 KB | 240 MHz x2 / 520 KB |
-| Lógica | 5 V (directo a WS2812B) | 3.3 V (necesita level shifter) |
-| OTA (update sin cable) | no | sí |
+| Lógica | **5 V: nada de level shifter, nada de divisores** | 3.3 V: necesita shifter + divisores |
+| RAM | 2 KB (alcanza, ver §4) | 520 KB |
+| WiFi / BLE | no | sí |
+| OTA | no | sí |
+| Pines usados / disponibles | 11 de 12 digitales | sobran |
 
-Mismo precio, y el camino a la app ya queda abierto. El firmware igual está
-escrito con la lógica de tanteo separada del hardware (`padel_score.cpp` no
-incluye nada de Arduino), así que se puede portar si hace falta.
+**Por qué el Nano es realmente mejor para la demo**: al ser 5 V, el dato de la
+tira WS2812B va directo (el ESP32 a 3.3 V está en el límite y conviene un
+74AHCT125) y el pin ECHO de los HC-SR04 va directo (con ESP32 hay que poner un
+divisor 1k/2k en cada uno o se daña el pin). Son 5 componentes y 10 soldaduras menos.
 
-## 2. BOM del MVP
+**Lo que se pierde**: WiFi. Por eso la lógica de tanteo (`padel_score.cpp`) no
+tiene una sola línea de Arduino: cuando se pase al ESP32, se cambia el `#define`
+y se compila. Nada que reescribir.
 
-Precios de referencia (USD, mercado local aprox., noviembre 2026):
+## 2. BOM
 
-| # | Ítem | Cant. | Aprox. | Notas |
-|---|------|-------|--------|-------|
-| 1 | ESP32 DevKit v1 (30 pines) | 1 | 6 | el cerebro |
-| 2 | Tira WS2812B **IP65**, 60 LED/m, rollo 5 m | 1 | 15 | se necesitan ~4 m: 236 LEDs |
-| 3 | Sensor ultrasónico HC-SR04 | 2 | 3 | proximidad de paleta izq./der. |
-| 4 | Receptor RF 433 MHz 4 canales (PT2272-M4) | 1 | 4 | salidas momentáneas |
-| 5 | Llavero RF 433 MHz EV1527 4 botones | 2 | 3 | **un control por equipo** |
-| 6 | Level shifter 74AHCT125 | 1 | 1 | 3.3 V → 5 V del dato de la tira |
-| 7 | Capacitor 1000 µF / 10 V + resistor 470 Ω | 1 | 1 | protección de la tira |
-| 8 | Buzzer pasivo + transistor BC337 | 1 | 1 | confirmación sonora |
-| 9 | Acrílico **opal blanco 3 mm** (A3) | 1 | 9 | difusor |
-| 10 | Acrílico **humo / rojo oscuro 2 mm** (A3) | 1 | 9 | filtro de contraste (ver doc 02) |
-| 11 | PVC foam board negro 3 mm o chapa plástica | 1 | 8 | máscara frontal + tabiques |
-| 12 | Caja estanca IP65 ~300×200×80 o bandeja de PVC | 1 | 14 | cuerpo del cartel |
-| 13 | Borneras, fusible 5 A, cable 18 AWG, termocontraíble, bridas, silicona neutra | — | 8 | |
-| 14 | Power bank 20 000 mAh con salida **5 V / 3 A** | 1 | 20 | o cargador USB-C de pared |
-| | **Total con power bank** | | **~100** | **~80 sin el power bank** |
+La columna **Demo** es lo mínimo para la versión jugable con Nano; **Final** es el
+cartel definitivo. Precios de referencia en USD.
 
-Lo que **no** hay que comprar en el MVP: módulos de 7 segmentos comerciales
-(un dígito de 20 cm cuesta más que todo esto), fuente de PC, PCB.
+| # | Ítem | Demo | Final | Aprox. | Notas |
+|---|------|:----:|:-----:|-------|-------|
+| 1 | Arduino Nano (clon CH340 sirve) | 1 | — | 5 | el cerebro de la demo |
+| 2 | ESP32 DevKit v1 | — | 1 | 6 | sólo para la fase con app |
+| 3 | Tira WS2812B **IP65**, 60 LED/m | 3.2 m | 4.7 m | 12 / 16 | rollo de 5 m cubre las dos |
+| 4 | Sensor ultrasónico HC-SR04 | 2 | 2 | 3 | proximidad de paleta izq./der. |
+| 5 | Receptor RF 433 MHz **4 canales** (PT2272-M4) | 1 | 1 | 4 | salidas momentáneas |
+| 6 | Llavero RF 433 MHz EV1527 4 botones | 2 | 2 | 3 | **un control por equipo** |
+| 7 | Buzzer pasivo + BC337 + R 1 kΩ | 1 | 1 | 1 | confirmación sonora |
+| 8 | Capacitor 1000 µF / 10 V + R 470 Ω | 1 | 1 | 1 | protección de la tira |
+| 9 | Level shifter 74AHCT125 | **no** | 1 | 1 | sólo si se usa ESP32 |
+| 10 | Acrílico opal blanco 3 mm (A3) | opc. | 1 | 9 | difusor (en la demo: papel manteca) |
+| 11 | Acrílico **humo o rojo oscuro** 2 mm (A3) | reco. | 1 | 9 | filtro de contraste: ver doc 02 §4 |
+| 12 | Cartón pluma / PVC foam negro 3 mm | 1 | 1 | 8 | máscara + tabiques |
+| 13 | Caja estanca IP65 ~300×200×80 | opc. | 1 | 14 | en la demo: bandeja de PVC |
+| 14 | Borneras, fusible 5 A, cable 18 AWG, termocontraíble, bridas, silicona | — | — | 8 | |
+| 15 | Power bank 20 000 mAh salida **5 V / 3 A** | 1 | 1 | 20 | o cargador USB-C de pared |
+| | **Total** | **~55** | **~95** | | sin contar el power bank: ~35 / ~75 |
 
-## 3. Presupuesto de corriente (esto es lo que define la fuente)
+Para saber qué de esto ya tenés y qué se puede sustituir, está
+**[`05-inventario-demo-nano.md`](05-inventario-demo-nano.md)**.
 
-Conteo de LEDs (definido en `config.h`):
+## 3. Presupuesto de corriente
 
-```
-Por equipo:  2 dígitos PUNTOS × 42 LEDs (6 LEDs/segmento)  =  84
-             1 dígito GAMES  × 28 LEDs (4 LEDs/segmento)   =  28
-             3 dots de SET   ×  2 LEDs                     =   6
-                                                    por equipo = 118
-                                              TOTAL 2 equipos = 236 LEDs
-```
+Conteo de LEDs por perfil (generado desde `config.h`):
 
-| Escenario | LEDs encendidos | Corriente @5 V |
+| Perfil | Puntos (4 díg.) | Juegos (2) | Sets (2) | Centro (4 iconos) | **Total** | Tira |
+|---|---|---|---|---|---|---|
+| `LAYOUT_BENCH` | 4 × 7 | 2 × 7 | 2 × 7 | 4 × 1 | **60** | 1.0 m |
+| `LAYOUT_DEMO` | 4 × 28 | 2 × 21 | 2 × 14 | 4 × 2 | **190** | 3.2 m |
+| `LAYOUT_FULL` | 4 × 42 | 2 × 28 | 2 × 21 | 4 × 3 | **278** | 4.7 m |
+
+| Escenario (`LAYOUT_DEMO`, 190 LEDs) | LEDs encendidos | Corriente @5 V |
 |---|---|---|
-| Peor caso teórico (todo en rojo pleno) | 236 | ~4.7 A |
-| Caso real (dígitos típicos, ~55 %) | ~130 | ~2.6 A |
-| Con brillo "sombra" (150/255) | ~130 | ~1.6 A |
-| ESP32 + sensores + receptor | — | ~0.2 A |
+| Peor caso teórico (todo rojo pleno) | 190 | ~3.8 A |
+| Caso real (dígitos típicos ~55 %) | ~105 | ~2.1 A |
+| Brillo "sombra" (150/255) | ~105 | ~1.3 A |
+| Nano + sensores + receptor | — | ~0.1 A |
+
+Con `LAYOUT_FULL` (278 LEDs) el peor caso sube a ~5.6 A y el caso real a ~3.1 A.
 
 Dos consecuencias prácticas:
 
-1. **El firmware limita la corriente solo.** `FastLED.setMaxPowerInVoltsAndMilliamps(5, 2600)`
-   escala el brillo global antes de cada `show()` para no pasar de 2.6 A. Un
-   power bank de 5 V / 3 A nunca se corta por sobreconsumo. Si usás una fuente
-   más grande, subí `PSU_MILLIAMPS` en `config.h` y el cartel se pone más brillante
-   automáticamente.
-2. **Autonomía**: power bank de 20 000 mAh (74 Wh) a ~13 W reales ⇒ **5–6 h de
-   juego continuo**. Una tarde de pádel entra sin problema. A brillo de sombra,
-   9–10 h.
+1. **El firmware limita la corriente solo.**
+   `FastLED.setMaxPowerInVoltsAndMilliamps(5, 2600)` escala el brillo global antes
+   de cada `show()` para no pasar de 2.6 A. Con un power bank de 5 V / 3 A nunca
+   se corta por sobreconsumo. Si conseguís una fuente más grande, subís
+   `PSU_MILLIAMPS` y el cartel se pone más brillante automáticamente, sin tocar
+   nada más.
+2. **Autonomía**: power bank de 20 000 mAh (74 Wh) a ~11 W reales ⇒ **6–7 h** con
+   `LAYOUT_DEMO` a brillo de sol; 10–12 h a brillo de sombra.
 
-### Si querés más brillo que el que da un power bank
+`LAYOUT_BENCH` (60 LEDs, ~1.2 A peor caso) funciona **alimentado por el USB de la PC**.
 
-Camino de upgrade (no hace falta para el MVP): módulo **CH224K / ZY12PDN**
-(disparador USB-C PD) seteado a 12 V, de ahí un convertidor **12 V → 5 V 10 A**.
-Con un power bank PD de 65 W se llega a los 4.7 A del peor caso y el cable USB-C
-queda fino (menos caída de tensión). Subís `PSU_MILLIAMPS` a 4700 y listo.
+### Si se quiere más brillo que el que da un power bank
 
-## 4. Cableado
+Camino de upgrade: módulo **CH224K / ZY12PDN** (disparador USB-C PD) seteado a
+12 V + convertidor **12 V → 5 V 10 A**. Con un power bank PD de 65 W se llega al
+peor caso de `LAYOUT_FULL`. Se sube `PSU_MILLIAMPS` y listo.
+
+## 4. Presupuesto de RAM del Nano (el riesgo real)
+
+El ATmega328P tiene **2048 bytes** de SRAM. Cálculo (estimado, no medido —
+en este entorno no hay toolchain de AVR para confirmarlo con `avr-size`):
+
+| Qué | `LAYOUT_DEMO` | `LAYOUT_FULL` |
+|---|---|---|
+| Framebuffer de LEDs (3 B por LED) | 570 B | 834 B |
+| `Display7Seg` (último estado + flags) | ~20 B | ~20 B |
+| `ScoreEngine` (estado + reglas + 8 niveles de undo) | 143 B | 143 B |
+| 5 × `Button` | 75 B | 75 B |
+| 2 × `ProximityCounter` | 34 B | 34 B |
+| Internos de FastLED | ~40 B | ~40 B |
+| Buffers de Serial (RX+TX) | 128 B | 128 B |
+| **Total estático** | **~1010 B (49 %)** | **~1274 B (62 %)** |
+
+Quedan ~1000 B / ~770 B para la pila. Entra, pero hubo que tomar **dos decisiones
+explícitas** para que entre:
+
+1. **`UNDO_DEPTH = 8` en Nano** (16 en ESP32). Cada nivel cuesta 15 bytes.
+2. **El JSON del estado se imprime campo por campo, no se arma en un buffer.**
+   Un `char buf[200]` en la pila era el consumo evitable más grande. En ESP32 sí
+   se arma el string, porque es el que se manda por WebSocket. Las dos ramas
+   producen el mismo JSON (`net_stub.h`).
+3. Las animaciones **no guardan copia del framebuffer**: pintan encima y restauran
+   llamando a `refresh()`. Un backup del bloque de un equipo eran 273 bytes de pila.
+
+**Flash**: el sketch + FastLED entran en ~14–17 KB de los 30 KB útiles. Sin problema.
+
+**Advertencia de timing**: FastLED en AVR deshabilita interrupciones durante
+`show()` (~30 µs por LED ⇒ 5.7 ms con 190 LEDs, 8.3 ms con 278). Eso hace que
+`millis()` se atrase unos milisegundos **por cada refresco**. Como el refresco
+sólo ocurre cuando cambia algo, el atraso total en un partido es de décimas de
+segundo y no afecta nada (ni el antirrebote, ni la pulsación larga de 2 s).
+
+## 5. Cableado con Arduino Nano
 
 ```
-                       ┌────────────────────────────────────────┐
-  Power bank 5V/3A ──► │ bornera 5V ─── fusible 5A ─────────────┼──► 5V tira (inyectar
-   (USB-C o USB-A)     │        │                               │     en AMBOS extremos)
-                       │        ├──► ESP32 pin 5V (VIN)         │
-                       │        └──► 74AHCT125 VCC              │
-                       │ GND común ◄───────────────────────────┤
-                       └────────────────────────────────────────┘
+                        ┌──────────────────────────────────────────┐
+  Power bank 5V/3A ───►  │ bornera 5V ── fusible 5A ────────────────┼──► 5V tira
+   (USB-A o USB-C)       │      │                                   │   (inyectar en
+                         │      └──► Nano pin 5V  (NO el VIN)       │    AMBOS extremos)
+                         │ GND común ◄─────────────────────────────┤
+                         └──────────────────────────────────────────┘
 
-  ESP32 GPIO13 ──► 74AHCT125 (1A) ──(1Y)── 470 Ω ──► DIN tira WS2812B
+  Nano D6 ──[ 470 Ω ]──► DIN de la tira WS2812B      (sin level shifter: Nano es 5 V)
   Capacitor 1000 µF entre 5V y GND, lo más cerca posible del inicio de la tira.
 
-  HC-SR04 "A" (izquierda)        HC-SR04 "B" (derecha)
-    VCC → 5V                       VCC → 5V
-    TRIG → GPIO25                  TRIG → GPIO32
-    ECHO → divisor → GPIO26        ECHO → divisor → GPIO33
-    GND → GND                      GND → GND
+  HC-SR04 "A" (izquierda, Equipo A)     HC-SR04 "B" (derecha, Equipo B)
+    VCC  → 5V                             VCC  → 5V
+    TRIG → D2                              TRIG → D4
+    ECHO → D3   (directo, sin divisor)     ECHO → D5   (directo)
+    GND  → GND                             GND  → GND
 
-    Divisor obligatorio (el ECHO sale 5 V, el ESP32 es 3.3 V):
-      ECHO ──[ 1 kΩ ]──┬── GPIO
-                       └──[ 2 kΩ ]── GND
+  Receptor RF 433 de 4 canales (alimentado a 5 V):
+    CH1 → D7    (+1 punto Equipo A)
+    CH2 → D8    (+1 punto Equipo B)
+    CH3 → D9    (corto: deshacer / largo: cambiar saque)
+    CH4 → D10   (corto: brillo / 2 s: reset del partido)
 
-  Receptor RF 4 canales (alimentado a 5 V, salidas 3.3–5 V "momentáneas"):
-    CH1 → GPIO14   (+1 punto Equipo A)
-    CH2 → GPIO27   (+1 punto Equipo B)
-    CH3 → GPIO16   (corto: deshacer / largo: cambiar saque)
-    CH4 → GPIO17   (corto: brillo / 2 s: reset del partido)
-    Si las salidas del receptor son 5 V, poné el mismo divisor 1k/2k en cada canal.
+  Buzzer pasivo → D11  (vía BC337: base con R 1 kΩ, emisor a GND, buzzer entre 5V y colector)
+  Botón de la caja → D12 a GND  (usa INPUT_PULLUP, no hace falta resistor)
+  LDR opcional → A0  (divisor con 10 kΩ a GND)
 
-  Buzzer  → GPIO4 (vía BC337, con resistor 1 kΩ en base)
-  Botón de la caja → GPIO18 a GND (usa INPUT_PULLUP)
-  LDR opcional → GPIO34 (divisor con 10 kΩ a GND)
+  D13 queda libre a propósito: tiene el LED de la placa en paralelo.
+  D0/D1 son el puerto serie (USB), no usar.
 ```
+
+Para el pinout de ESP32 (fase 2) ver la sección `BOARD_ESP32` de `config.h`.
 
 **Reglas de oro del armado eléctrico**
 
-- Masa común entre ESP32, tira, sensores y receptor. Siempre.
-- Inyectar 5 V al principio **y al final** de la guirnalda (y al medio si pasás
-  de ~150 LEDs por tramo): si no, los últimos dígitos quedan rojizos y opacos.
-- Cable de alimentación 18 AWG como mínimo. La caída de tensión a 3 A en cable
-  fino es la causa número uno de "los últimos dígitos parpadean".
-- Nunca alimentar la tira desde el pin 5V del ESP32: pasa por la protección de
-  la placa y se quema.
+- **Masa común** entre Nano, tira, sensores y receptor. Siempre.
+- **Inyectar 5 V al principio y al final** de la guirnalda (y al medio si un tramo
+  pasa de ~150 LEDs). Si no, los últimos dígitos quedan rojizos y opacos.
+- Alimentación con cable **18 AWG o más grueso**. La caída de tensión a 3 A en
+  cable fino es la causa número uno de "los últimos dígitos parpadean".
+- **Nunca alimentar la tira desde el pin 5V del Nano**: pasa por la pista de la
+  placa y se quema. El 5V del Nano se conecta *a la misma bornera* que la tira,
+  no "a través" de la placa.
+- El capacitor de 1000 µF no es opcional: el pico de arranque de 190 LEDs hace
+  resetear el Nano sin él.
 
-## 5. Los dos controles
+## 6. Los dos controles
 
 Llaveros EV1527 de 4 botones, **ambos aprendidos al mismo receptor de 4 canales**.
-Como los dos llaveros son idénticos, cada equipo tiene físicamente los 4 canales;
-lo que se hace es **asignar un botón por equipo** (y etiquetarlos con cinta de
-color):
+Como los llaveros son idénticos, cada equipo tiene físicamente los 4 canales; lo
+que se hace es **asignar un botón por equipo** y etiquetarlos con cinta de color:
 
-| Botón del llavero | Canal | Función | Quién lo usa |
-|---|---|---|---|
-| A | CH1 | +1 punto Equipo A (izquierda) | Equipo A |
-| B | CH2 | +1 punto Equipo B (derecha) | Equipo B |
-| C | CH3 | corto = deshacer · largo = cambiar saque | cualquiera |
-| D | CH4 | corto = brillo · 2 s = reset del partido | cualquiera |
+| Botón del llavero | Canal | Pin Nano | Función | Quién lo usa |
+|---|---|---|---|---|
+| A | CH1 | D7 | +1 punto Equipo A (izquierda) | Equipo A |
+| B | CH2 | D8 | +1 punto Equipo B (derecha) | Equipo B |
+| C | CH3 | D9 | corto = deshacer · largo = cambiar saque | cualquiera |
+| D | CH4 | D10 | corto = brillo · 2 s = reset del partido | cualquiera |
 
-Simple, sin pairing, sin baterías que gestionar (CR2032, ~1 año), alcance 30–80 m
-en línea de vista: sobra para una cancha. El camino elegante (remotos ESP-NOW con
-batería recargable y telemetría) está descrito en `04-roadmap-wifi-app.md`.
+Sin pairing, sin baterías que gestionar (CR2032, ~1 año), alcance 30–80 m en línea
+de vista: sobra para una cancha. Si no tenés el receptor 433, en el doc 05 están
+las alternativas (IR con control de TV, Bluetooth, botones cableados).
 
-## 6. Los sensores de proximidad
+## 7. Los sensores de proximidad
 
-- **A (izquierda) = Equipo A**, **B (derecha) = Equipo B**, tal como pediste.
-- Se montan en el **borde inferior del cartel**, apuntando hacia el jugador, con
-  un aro pintado del color del equipo alrededor de cada ventana ("acercá la paleta acá").
-- Altura de montaje recomendada: **1.2–1.6 m**, cómodo de alcanzar con la paleta
-  sin agacharse. Si el cartel va alto en la reja, los dos sensores van en una
-  **cajita satélite** al lado del poste de la red, con 4 hilos (5V, GND, TRIG, ECHO
-  por sensor) hasta el cerebro.
-- Umbral: cuenta cuando la paleta está a **≤20 cm sostenida 250 ms**, después
+- **A (izquierda) = Equipo A**, **B (derecha) = Equipo B**, como pediste.
+- Se montan en el **borde inferior del cartel**, apuntando al jugador, con un aro
+  pintado del color del equipo alrededor de cada ventana ("acercá la paleta acá").
+- Altura recomendada: **1.2–1.6 m**, cómodo de alcanzar con la paleta sin
+  agacharse. Si el cartel va alto en la reja, los dos sensores van en una
+  **cajita satélite** junto al poste de la red, con 4 hilos por sensor.
+- Umbral: cuenta cuando la paleta está a **≤20 cm sostenida 250 ms**; después
   queda bloqueado 2.5 s y además **exige que la paleta se aleje más de 35 cm**
   para re-armarse. Eso elimina los dobles conteos y a la gente que pasa cerca.
-- Se eligió **ultrasónico (HC-SR04) y no infrarrojo**: el ultrasonido es inmune
-  al sol directo, que es justo donde fallan los sensores IR reflectivos tipo
-  TCRT5000. Upgrade opcional: **VL53L1X** (ToF láser, haz angosto de 27°, muy
-  rápido, I²C) — más preciso y menos falsos positivos por gente caminando, pero
-  pierde alcance con sol muy fuerte y hay que manejar dos direcciones I²C con XSHUT.
-  Está previsto como alternativa en `inputs.cpp`.
+  Los cuatro umbrales están en `config.h` y **hay que calibrarlos en la cancha**.
+- Se eligió **ultrasónico y no infrarrojo**: el ultrasonido es inmune al sol
+  directo, que es justo donde fallan los IR reflectivos tipo TCRT5000.
