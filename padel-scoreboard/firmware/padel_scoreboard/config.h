@@ -117,6 +117,19 @@
 #define CENTER_OFFSET   (2 * LEDS_PER_TEAM)
 
 // ---------------------------------------------------------------------------
+// 3b) TIPO DE TIRA LED
+//     WS2812B / WS2812 / WS2811 / WS2813 / SK6812 -> 5 V, un hilo de dato.
+//     WS2815 -> 12 V, mismo protocolo, ademas tiene linea de dato de respaldo.
+//               Si se usa WS2815 hay que alimentar con 12 V (el dato igual sale
+//               del mismo pin) y PSU_VOLTS pasa a 12.
+//     APA102 / WS2801 / LPD8806 -> llevan CLOCK aparte: hay que usar la variante
+//               de addLeds con CLOCK en display7seg.cpp (esta comentada ahi).
+//     El orden de color se descubre con tools/diag_leds (comando 'o').
+// ---------------------------------------------------------------------------
+#define LED_CHIPSET      WS2812B
+#define LED_COLOR_ORDER  GRB
+
+// ---------------------------------------------------------------------------
 // 4) BRILLO Y PRESUPUESTO DE CORRIENTE
 //    FastLED escala el brillo global solo para no pasarse del limite.
 //    Power bank 5 V / 3 A -> 2600 mA con margen.

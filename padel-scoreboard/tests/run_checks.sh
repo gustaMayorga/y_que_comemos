@@ -40,5 +40,16 @@ for board in BOARD_NANO BOARD_ESP32; do
 done
 
 echo
+echo "== 3) compilacion de las herramientas de diagnostico =="
+for t in diag_nano diag_leds; do
+  d="$TMP/tool_$t"; mkdir -p "$d"
+  cp "tools/$t/$t.ino" "$d/sketch.cpp"
+  out=$(g++ -std=c++14 -Wall -Wextra -Wno-unused-parameter -I"$STUB" \
+            "$d/sketch.cpp" "$STUB/main.cpp" -o "$d/sk" 2>&1 | head -5)
+  if [ -n "$out" ]; then printf "  %-12s FALLO\n%s\n" "$t" "$out"; fail=1
+  else                   printf "  %-12s OK\n" "$t"; fi
+done
+
+echo
 [ "$fail" = 0 ] && echo "TODO OK" || echo "HAY FALLOS"
 exit $fail

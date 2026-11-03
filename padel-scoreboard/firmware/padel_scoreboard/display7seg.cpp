@@ -1,7 +1,10 @@
 #include "display7seg.h"
 
 void Display7Seg::begin() {
-  FastLED.addLeds<WS2812B, PIN_LED_DATA, GRB>(leds_, NUM_LEDS);
+  FastLED.addLeds<LED_CHIPSET, PIN_LED_DATA, LED_COLOR_ORDER>(leds_, NUM_LEDS);
+  // Para tiras con CLOCK (APA102 / WS2801 / LPD8806) usar esta linea en su lugar
+  // y definir PIN_LED_CLOCK en config.h:
+  // FastLED.addLeds<LED_CHIPSET, PIN_LED_DATA, PIN_LED_CLOCK, LED_COLOR_ORDER>(leds_, NUM_LEDS);
   // Clave para alimentar con power bank: FastLED baja el brillo global solo
   // antes de cada show() para no pasar del presupuesto de corriente declarado.
   FastLED.setMaxPowerInVoltsAndMilliamps(PSU_VOLTS, PSU_MILLIAMPS);
