@@ -25,6 +25,14 @@
 
 #include <FastLED.h>
 
+// A 8 MHz (Pro Mini 3.3 V) el error de reloj a 115200 baudios es ~3.5 % y el
+// monitor serie imprime basura. A 16 MHz es 2.1 % y anda bien. Se elige solo.
+#if F_CPU >= 16000000L
+  #define SERIAL_BAUD 115200
+#else
+  #define SERIAL_BAUD 57600
+#endif
+
 #define DATA_PIN       6
 #define CLOCK_PIN      7      // solo para tiras tipo APA102/WS2801 (4 hilos)
 #define LED_CHIPSET    WS2812B
@@ -138,7 +146,7 @@ void currentRamp() {
 }
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(SERIAL_BAUD);
   FastLED.addLeds<LED_CHIPSET, DATA_PIN, LED_ORDER>(leds, MAX_LEDS);
   // Para tiras con CLOCK (APA102 / WS2801 / LPD8806), usar esta linea en su lugar:
   // FastLED.addLeds<APA102, DATA_PIN, CLOCK_PIN, LED_ORDER>(leds, MAX_LEDS);

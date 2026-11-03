@@ -12,6 +12,14 @@
 
 #include <Arduino.h>
 
+// A 8 MHz (Pro Mini 3.3 V) el error de reloj a 115200 baudios es ~3.5 % y el
+// monitor serie imprime basura. A 16 MHz es 2.1 % y anda bien. Se elige solo.
+#if F_CPU >= 16000000L
+  #define SERIAL_BAUD 115200
+#else
+  #define SERIAL_BAUD 57600
+#endif
+
 const uint8_t PIN_LED = 13;          // LED de la placa
 const uint8_t FIRST_PIN = 2, LAST_PIN = 12;
 
@@ -89,7 +97,7 @@ void info() {
 }
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(SERIAL_BAUD);
   pinMode(PIN_LED, OUTPUT);
   for (uint8_t p = FIRST_PIN; p <= LAST_PIN; p++) pinMode(p, INPUT_PULLUP);
   delay(300);

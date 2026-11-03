@@ -217,6 +217,6 @@ Global variables use XXXX bytes (NN%) of dynamic memory...  Maximum is 2048 byte
 Si "Global variables" pasa de ~1500 bytes, bajá a `LAYOUT_DEMO` o reducí
 `UNDO_DEPTH`.
 
-Monitor serie a 115200: cada cambio de tanteo imprime el JSON del estado. Sirve
+Monitor serie (115200 a 16 MHz, 57600 a 8 MHz): cada cambio de tanteo imprime el JSON del estado. Sirve
 para probar **toda** la lógica —incluidos los controles y los sensores— antes de
 soldar un solo LED.
