@@ -6,7 +6,11 @@
 
 // ---------------------------------------------------------------------------
 // 0) PLACA
-//    BOARD_NANO  -> Arduino Nano / Uno (ATmega328P). Demo actual.
+//    BOARD_NANO  -> Arduino Nano / Uno / Pro Mini (ATmega328P). Demo actual.
+//                   Las tres placas comparten el mismo chip y la misma
+//                   numeracion de pines D2..D13 / A0..A5.
+//                   OJO con el Pro Mini: hay version 5 V/16 MHz y 3.3 V/8 MHz.
+//                   Ver docs/01-hardware-bom.md seccion 1b.
 //    BOARD_ESP32 -> ESP32 DevKit v1. Fase 2, habilita WiFi.
 //    Cambiar de placa = cambiar esta linea. El resto del firmware se adapta.
 // ---------------------------------------------------------------------------

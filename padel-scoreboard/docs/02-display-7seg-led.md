@@ -182,10 +182,46 @@ INICIO (DIN desde el pin D6 del Nano)
 FIN
 ```
 
+### En la tira NO hay nada que diga "A"
+
+El hardware no sabe qué segmento es cuál, y no hace falta. La tira sólo tiene
+**posición en la fila**: el primer LED después del cable de datos es el 0.
+
+Lo único identificado en la tira son los pads de corte (**+5V**, **DIN**, **GND**)
+y una **flecha impresa** que dice para dónde fluye el dato. Nada más.
+
+**"Segmento A" significa simplemente "el primer pedacito de la cadena".** Si lo
+pegás arriba, A es el de arriba. Vos creás el mapeo con el orden en que soldás.
+
+### El truco para no equivocarse: vuelta de reloj, y el del medio al final
+
+```
+        ①AAAA                  Nano D6 ──→ entra en ①
+       ⑥    ②                  ① sale ──→ entra en ②
+       ⑥    ②                  ② sale ──→ entra en ③
+        ⑦GGGG                  ③ sale ──→ entra en ④
+       ⑤    ③                  ④ sale ──→ entra en ⑤
+       ⑤    ③                  ⑤ sale ──→ entra en ⑥
+        ④DDDD                  ⑥ sale ──→ entra en ⑦
+```
+
+Es un círculo en sentido de las agujas del reloj por los 6 segmentos de afuera
+arrancando arriba, y al final te metés al del medio. Los saltos de cable quedan
+cortos y es fácil de recordar.
+
+Regla única al soldar: **la SALIDA del pedacito anterior va a la ENTRADA del
+siguiente**, siguiendo la flecha. Tres cables por salto (5V, datos, GND).
+
 Dentro de cada segmento la **dirección no importa** (se enciende completo), pero
 el **orden A→B→C→D→E→F→G sí**. Soldá con 3 hilos (5V, DIN, GND) entre segmento y
 segmento respetando la flecha impresa en la tira: si invertís un tramo, ese tramo
 y todo lo que viene después queda apagado.
+
+**Si quedó cruzado te das cuenta en 30 segundos**: `tools/diag_leds` comando `w`
+enciende el LED 0, el 1, el 2... Si los tres primeros prenden el segmento de
+arriba, A quedó bien. Si prenden otro, o lo desoldás y reordenás, o se cambia el
+mapeo en el firmware. El comando `d` después cuenta 0-9: si los diez números
+salen bien dibujados, el cableado está perfecto.
 
 **Verificación**: al arrancar, el firmware corre `animBoot()`, que enciende LED
 por LED en orden a lo largo de toda la guirnalda. Si el barrido va

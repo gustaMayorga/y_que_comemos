@@ -28,6 +28,42 @@ divisor 1k/2k en cada uno o se daña el pin). Son 5 componentes y 10 soldaduras 
 tiene una sola línea de Arduino: cuando se pase al ESP32, se cambia el `#define`
 y se compila. Nada que reescribir.
 
+## 1b. Si usás un Arduino Pro Mini (ATmega328P)
+
+Sirve exactamente igual que el Nano: mismo chip, misma RAM, misma numeracion de
+pines D2..D13 y A0..A5. `BOARD_NANO` en `config.h` lo cubre sin cambios. Las dos
+únicas diferencias:
+
+1. **No tiene USB**: se programa con un adaptador USB-TTL (CH340, FT232, CP2102).
+2. **Hay dos versiones y hay que saber cuál tenés**: **5 V / 16 MHz** o
+   **3.3 V / 8 MHz**. Esto cambia la configuración del IDE y, más importante,
+   cambia el cableado del tanteador.
+
+### Cómo saber cuál es, sin instrumentos
+
+Cargá el Blink con **"ATmega328P (5V, 16 MHz)"** seleccionado y mirá el LED:
+
+- parpadea **1 segundo prendido / 1 apagado** → es **5 V / 16 MHz** ✅
+- parpadea **al doble de lento** (2 s y 2 s) → es **3.3 V / 8 MHz**: el código
+  asume el doble de velocidad de reloj que la real
+
+El otro síntoma del mismo problema: el monitor serie imprime **caracteres basura**
+aunque el baudrate esté bien.
+
+### Qué cambia en el tanteador según la versión
+
+| | **Pro Mini 5 V / 16 MHz** | **Pro Mini 3.3 V / 8 MHz** |
+|---|---|---|
+| Dato de la tira WS2812B | directo, como el Nano | ⚠️ 3.3 V está en el límite: **conviene buffer** (acá entra el CD74HC4009, con dos inversores en serie) |
+| HC-SR04 | directo a 5 V | ⚠️ alimentarlos con **5 V aparte** (a 3.3 V no funcionan bien) y poner **divisor 1k/2k en cada ECHO** |
+| Receptor RF | directo | divisor en cada canal si sus salidas son de 5 V |
+| FastLED | sin problemas | funciona (8 MHz es el mínimo que soporta para WS2812), sin margen de sobra |
+| IDE: Processor | ATmega328P (5V, 16 MHz) | ATmega328P (3.3V, 8 MHz) |
+
+**Conclusión**: si tenés las dos versiones, usá la de **5 V / 16 MHz**: te ahorra
+el buffer y los divisores, igual que el Nano. Si sólo tenés la de 3.3 V, funciona,
+pero sumá el buffer de datos y los divisores de los ECHO.
+
 ## 2. BOM
 
 La columna **Demo** es lo mínimo para la versión jugable con Nano; **Final** es el
