@@ -179,12 +179,57 @@ No necesita **ningún componente externo**. Si en el monitor serie (115200) apar
 comando `r` te dice la RAM libre, `b` hace parpadear el LED de la placa, y `m`
 monitorea D2..D12 para que pruebes pin por pin con un cable a GND.
 
-Si no aparece nada:
-- **Clon con CH340**: probá `--fqbn arduino:avr:nano:cpu=atmega328old` (bootloader
-  viejo). Es el problema más común con los clones.
-- En Linux puede faltar permiso sobre el puerto: `sudo usermod -aG dialout $USER`
-  y volver a iniciar sesión.
-- Probá otro cable USB. La mitad de los "Nano quemados" son cables de sólo carga.
+### Si falla la CARGA (no el compilado)
+
+Primero mirá **qué parte falló**. Si el IDE dice algo como
+`El Sketch usa 924 bytes (3%)...`, el código compiló bien: el problema es de
+puerto o de placa, no de software.
+
+**Error: `cannot open port \\.\COM7: Se ha especificado un dispositivo que no
+existe` / `unable to open port COMx`**
+
+Ese mensaje significa que **el puerto no existe**, no que esté ocupado (si
+estuviera ocupado diría "acceso denegado"). Casi siempre es una de estas tres:
+
+1. **El adaptador no está enumerado** (driver faltante o cable malo).
+2. **El puerto cambió de número** y el IDE sigue apuntando al viejo.
+3. **El cable USB es de sólo carga** (no tiene los hilos de datos).
+
+Diagnóstico en Windows, en orden:
+
+- **Win+X → Administrador de dispositivos**, y mirá en **"Puertos (COM y LPT)"**:
+  - aparece **`USB-SERIAL CH340 (COMx)`** → ese `COMx` es tu puerto.
+    Seleccionalo en Herramientas → Puerto.
+  - aparece con **⚠ amarillo**, o en "Otros dispositivos" como `USB2.0-Serial` →
+    **falta el driver CH340**. Bajalo de wch.cn (`CH341SER.EXE`) e instalalo.
+  - aparece con **⚠ y "Código 10"** → driver CH340 demasiado nuevo para un chip
+    clon. Instalá la versión **3.4** del driver en vez de la 3.5+.
+  - **no aparece nada** → ver el punto del cable, abajo.
+- **Enchufá y desenchufá** el adaptador con el Administrador de dispositivos
+  abierto. El renglón que aparece y desaparece **es el tuyo**. Esto identifica el
+  puerto sin lugar a dudas.
+- Si no aparece/desaparece nada: **cambiá el cable USB**. Más de la mitad de los
+  "adaptadores fallados" son cables de sólo carga. Probá también otro puerto USB,
+  directo a la PC y no por hub.
+- En el **IDE 2.x**, después de instalar un driver hay que **cerrar y volver a
+  abrir** el IDE para que refresque la lista de puertos.
+
+**Error distinto: `avrdude: stk500_recv(): programmer is not responding`** — ahí el
+puerto SÍ existe y el problema es el reset o el bootloader:
+
+- **Pro Mini sin pin DTR en el adaptador**: hay que apretar y soltar **RESET**
+  justo cuando el IDE dice "Subiendo...". Es cuestión de timing, puede llevar
+  varios intentos.
+- Verificá que **RX vaya a TX y TX a RX** (cruzados). Si están derechos, no sube.
+- Clon con bootloader viejo: probá Processor →
+  **ATmega328P (Old Bootloader)**, o en CLI `--fqbn arduino:avr:nano:cpu=atmega328old`.
+
+### En Linux
+
+- Falta permiso sobre el puerto: `sudo usermod -aG dialout $USER` y volver a
+  iniciar sesión.
+- El puerto suele ser `/dev/ttyUSB0`. Verificalo con `ls /dev/ttyUSB*` antes y
+  después de enchufar el adaptador.
 
 ---
 
