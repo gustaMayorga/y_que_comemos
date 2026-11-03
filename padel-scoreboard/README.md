@@ -68,6 +68,7 @@ Un `#define` en `config.h` cambia el tamaño de todo:
 | Perfil | LEDs | Tira a 60 LED/m | Dígito de puntos | Para qué |
 |---|---|---|---|---|
 | `LAYOUT_BENCH` | **60** | **1.0 m exacto** | 1 LED/segmento | probar todo en el escritorio |
+| `LAYOUT_SPARSE` | **144** | 5 m a **30 LED/m** | **~230 mm**, legible a 80 m | ⭐ cartel full size con la mitad de LEDs y 1.6 A |
 | `LAYOUT_DEMO` | **190** | 3.2 m | ~155 mm, legible a 45 m | demo jugable en cancha |
 | `LAYOUT_FULL` | **278** | 4.7 m | ~230 mm, legible a 80 m | cartel definitivo |
 

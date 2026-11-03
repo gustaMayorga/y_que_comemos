@@ -18,10 +18,18 @@
 //    LAYOUT_BENCH -> banco de pruebas: 60 LEDs exactos (1 tira de 1 m de 60/m).
 //                    Toda la logica se prueba con esto. Dígitos ilegibles pero
 //                    el cableado y el firmware son los definitivos.
-//    LAYOUT_DEMO  -> demo jugable: 190 LEDs (~3.2 m). Dígitos de 15 cm.
-//    LAYOUT_FULL  -> cartel final: 278 LEDs (~4.7 m). Dígitos de 23 cm.
+//    LAYOUT_SPARSE-> 144 LEDs. Pensado para tira de 30 LED/m: con esa densidad
+//                    da digitos del MISMO tamano que LAYOUT_FULL usando la mitad
+//                    de los LEDs y la mitad de la corriente. Con tira de
+//                    60 LED/m da digitos chicos (115 mm).
+//    LAYOUT_DEMO  -> demo jugable: 190 LEDs (~3.2 m a 60/m). Digitos de 15 cm.
+//    LAYOUT_FULL  -> cartel final: 278 LEDs (~4.7 m a 60/m). Digitos de 23 cm.
+//
+//    OJO: lo que importa no son los metros sino la CANTIDAD de LEDs y la
+//    densidad. 5 m de tira pueden ser 300 LEDs (a 60/m) o 150 (a 30/m).
 // ---------------------------------------------------------------------------
 //#define LAYOUT_BENCH
+//#define LAYOUT_SPARSE
 #define LAYOUT_DEMO
 //#define LAYOUT_FULL
 
@@ -88,6 +96,12 @@
   #define LEDS_PER_SEG_SMALL  4   // JUEGOS   -> segmento  67 mm, digito ~150 mm
   #define LEDS_PER_SEG_TINY   3   // SETS     -> segmento  50 mm, digito ~115 mm
   #define LEDS_PER_ICON       3   // flechas y avisos del centro
+#endif
+#ifdef LAYOUT_SPARSE
+  #define LEDS_PER_SEG_BIG    3   // a 30 LED/m: segmento 100 mm, digito ~230 mm
+  #define LEDS_PER_SEG_SMALL  2
+  #define LEDS_PER_SEG_TINY   2
+  #define LEDS_PER_ICON       1
 #endif
 #ifdef LAYOUT_DEMO
   #define LEDS_PER_SEG_BIG    4   // digito ~155 mm, legible a ~45 m

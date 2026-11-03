@@ -17,7 +17,7 @@ g++ -std=c++17 -Wall -Wextra tests/test_score.cpp "$FW/padel_score.cpp" -o "$TMP
 echo
 echo "== 2) compilacion de todas las variantes =="
 for board in BOARD_NANO BOARD_ESP32; do
-  for lay in LAYOUT_BENCH LAYOUT_DEMO LAYOUT_FULL; do
+  for lay in LAYOUT_BENCH LAYOUT_SPARSE LAYOUT_DEMO LAYOUT_FULL; do
     d="$TMP/${board}_${lay}"
     cp -r "$FW" "$d"
     sed -i -e "s|^#define BOARD_NANO|//#define BOARD_NANO|" \
