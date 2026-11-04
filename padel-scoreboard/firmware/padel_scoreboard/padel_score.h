@@ -47,6 +47,7 @@ struct MatchState {
   uint8_t   phase;        // GamePhase
   uint8_t   winner;       // 0xFF = sin ganador, 0/1 = equipo
   uint8_t   serving;      // 0/1 equipo al saque
+  uint8_t   setScore[3][2]; // juegos con que termino cada set (para el historial)
   uint32_t  pointCount;   // puntos jugados en total
 };
 

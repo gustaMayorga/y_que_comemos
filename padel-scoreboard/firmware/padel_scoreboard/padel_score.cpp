@@ -7,6 +7,9 @@
 
 static void awardSet(MatchState& s, const MatchRules& r, uint8_t team, uint8_t* f) {
   *f |= FLAG_SET;
+  // Guardar con cuantos juegos termino el set ANTES de poner los games en cero.
+  const uint8_t idx = s.sets[0] + s.sets[1];
+  if (idx < 3) { s.setScore[idx][0] = s.games[0]; s.setScore[idx][1] = s.games[1]; }
   s.sets[team]++;
   s.games[0] = s.games[1] = 0;
   s.points[0] = s.points[1] = P_0;

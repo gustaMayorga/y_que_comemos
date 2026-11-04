@@ -43,6 +43,10 @@ class Display7Seg {
   bool isBlinking() const;
 
   void flashTeam(uint8_t team, const CRGB& color, uint16_t ms);
+  // Barra roja que se va llenando mientras se mantiene el boton de reset.
+  void drawResetProgress(uint8_t pct);
+  // true mientras el ganador late: hay que refrescar seguido.
+  bool isCelebrating() const { return haveLast_ && lastState_.phase == PHASE_MATCH_OVER; }
   void animGameWon(uint8_t team);
   void animSetWon(uint8_t team);
   void animMatchWon(uint8_t team);
@@ -55,6 +59,10 @@ class Display7Seg {
   void fillGroup(uint16_t start, uint8_t n, const CRGB& c);
   void drawTeam(uint8_t team, const MatchState& st);
   void drawCenter(const MatchState& st, const Situation sit[2], bool showServe);
+  void fadeTeam(uint8_t team, uint8_t amount);
+  uint8_t pulso() const;                       // latido 0-255 derivado de millis()
+  static CRGB rueda(uint8_t pos);              // arcoiris sin depender de CHSV
+  static CRGB escalar(const CRGB& c, uint8_t f);
 
   uint16_t teamOffset(uint8_t t) const { return t == 0 ? TEAM_A_OFFSET : TEAM_B_OFFSET; }
   uint16_t oPointsTens(uint8_t t) const { return teamOffset(t); }

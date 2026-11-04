@@ -54,7 +54,8 @@ inline size_t scoreToJson(const MatchState& s, const Situation sit[2],
                           char* out, size_t cap) {
   return snprintf(out, cap,
     "{\"phase\":\"%s\",\"points\":[\"%s\",\"%s\"],\"tb\":[%u,%u],"
-    "\"games\":[%u,%u],\"sets\":[%u,%u],\"serving\":%u,"
+    "\"games\":[%u,%u],\"sets\":[%u,%u],"
+    "\"setScore\":[[%u,%u],[%u,%u],[%u,%u]],\"serving\":%u,"
     "\"sit\":[\"%s\",\"%s\"],\"winner\":%d,\"n\":%lu}",
     phaseName(s.phase),
     s.phase == PHASE_TIEBREAK ? "" : pointLabel(s.points[0]),
@@ -62,6 +63,9 @@ inline size_t scoreToJson(const MatchState& s, const Situation sit[2],
     (unsigned)s.tbPoints[0], (unsigned)s.tbPoints[1],
     (unsigned)s.games[0],    (unsigned)s.games[1],
     (unsigned)s.sets[0],     (unsigned)s.sets[1],
+    (unsigned)s.setScore[0][0], (unsigned)s.setScore[0][1],
+    (unsigned)s.setScore[1][0], (unsigned)s.setScore[1][1],
+    (unsigned)s.setScore[2][0], (unsigned)s.setScore[2][1],
     (unsigned)s.serving,
     situationName(sit[0]), situationName(sit[1]),
     s.winner == 0xFF ? -1 : (int)s.winner,
@@ -70,7 +74,7 @@ inline size_t scoreToJson(const MatchState& s, const Situation sit[2],
 
 inline void publishState(const MatchState& s, const Situation sit[2]) {
 #if ENABLE_SERIAL_JSON
-  char buf[200];
+  char buf[280];
   scoreToJson(s, sit, buf, sizeof(buf));
   Serial.println(buf);
 #endif
@@ -94,6 +98,12 @@ inline void publishState(const MatchState& s, const Situation sit[2]) {
   Serial.print(',');                   Serial.print(s.games[1]);
   Serial.print(F("],\"sets\":["));     Serial.print(s.sets[0]);
   Serial.print(',');                   Serial.print(s.sets[1]);
+  Serial.print(F("],\"setScore\":["));
+  for (uint8_t i = 0; i < 3; i++) {
+    Serial.print('['); Serial.print(s.setScore[i][0]);
+    Serial.print(','); Serial.print(s.setScore[i][1]); Serial.print(']');
+    if (i < 2) Serial.print(',');
+  }
   Serial.print(F("],\"serving\":"));   Serial.print(s.serving);
   Serial.print(F(",\"sit\":[\""));     Serial.print(situationName(sit[0]));
   Serial.print(F("\",\""));            Serial.print(situationName(sit[1]));

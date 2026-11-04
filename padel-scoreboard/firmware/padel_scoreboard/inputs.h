@@ -38,13 +38,16 @@ class Button {
  public:
   // activeHigh: true para salidas del PT2272 (van a alto al apretar el control)
   //             false para boton a GND con INPUT_PULLUP
-  void begin(uint8_t pin, bool activeHigh);
+  void begin(uint8_t pin, bool activeHigh, uint16_t longMs = BTN_LONG_PRESS_MS);
   void poll();
   bool pressedShort();   // se consume al leer
   bool pressedLong();    // se consume al leer
+  bool isHeld() const { return stable_; }        // sigue apretado ahora
+  uint32_t heldMs() const;                       // hace cuanto que esta apretado
 
  private:
   uint8_t  pin_ = 0;
+  uint16_t longMs_ = BTN_LONG_PRESS_MS;
   bool     activeHigh_ = true;
   bool     stable_ = false, lastRaw_ = false;
   uint32_t tChange_ = 0, tDown_ = 0;

@@ -183,15 +183,27 @@ segundo y no afecta nada (ni el antirrebote, ni la pulsación larga de 2 s).
     ECHO → D3   (directo, sin divisor)     ECHO → D5   (directo)
     GND  → GND                             GND  → GND
 
-  Receptor RF 433 de 4 canales (alimentado a 5 V):
-    CH1 → D7    (+1 punto Equipo A)
-    CH2 → D8    (+1 punto Equipo B)
-    CH3 → D9    (corto: deshacer / largo: cambiar saque)
-    CH4 → D10   (corto: brillo / 2 s: reset del partido)
+  ┌──────────────────────────────────────────────────────────────────┐
+  │  RECEPTOR RF 433 MHz de 4 canales (PT2272-M4)                    │
+  │                                                                  │
+  │    VCC  ──────────► 5V   (de la bornera, NO del pin del Nano)    │
+  │    GND  ──────────► GND  (masa común)                            │
+  │    D0 / CH1 ──────► D7    botón 1: +1 punto Equipo A             │
+  │    D1 / CH2 ──────► D8    botón 2: +1 punto Equipo B             │
+  │    D2 / CH3 ──────► D9    botón 3: DESHACER (CTRL+Z)             │
+  │    D3 / CH4 ──────► D10   botón 4: brillo / reset (sólo 4 btn)   │
+  │    ANT  ──────────► 17 cm de alambre recto, vertical, al aire    │
+  └──────────────────────────────────────────────────────────────────┘
+
+  Los pines del receptor suelen venir rotulados D0 D1 D2 D3 (no CH1..CH4).
+  D0 es el canal 1. Si además tiene un pin VT (Valid Transmission), se deja sin
+  conectar. Si el módulo es de 5 V y sus salidas llegan a 5 V, con el Nano van
+  directo; con ESP32 hay que poner divisor 1k/2k en cada canal.
 
   Buzzer pasivo → D11  (vía BC337: base con R 1 kΩ, emisor a GND, buzzer entre 5V y colector)
-  Botón de la caja → D12 a GND  (usa INPUT_PULLUP, no hace falta resistor)
-  LDR opcional → A0  (divisor con 10 kΩ a GND)
+  Botón de la caja  → D12 a GND  (brillo; usa INPUT_PULLUP, sin resistor)
+  Botón de RESET    → A1  a GND  (mantener 2 s; usa INPUT_PULLUP, sin resistor)
+  LDR opcional      → A0  (divisor con 10 kΩ a GND)
 
   D13 queda libre a propósito: tiene el LED de la placa en paralelo.
   D0/D1 son el puerto serie (USB), no usar.

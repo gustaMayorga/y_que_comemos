@@ -21,6 +21,52 @@ void Display7Seg::setBrightness(uint8_t b) {
 
 void Display7Seg::clear() { fill_solid(leds_, NUM_LEDS, CRGB::Black); }
 
+CRGB Display7Seg::escalar(const CRGB& c, uint8_t f) {
+  return CRGB((uint8_t)(((uint16_t)c.r * f) >> 8),
+              (uint8_t)(((uint16_t)c.g * f) >> 8),
+              (uint8_t)(((uint16_t)c.b * f) >> 8));
+}
+
+// Xorshift chiquito: evita depender de random() de Arduino, que choca con el
+// random() de la libc cuando se compila el sketch en la PC para testearlo.
+static uint16_t rnd16(uint16_t max) {
+  static uint16_t sem = 0xACE1;
+  sem ^= (uint16_t)(sem << 7);
+  sem ^= (uint16_t)(sem >> 9);
+  sem ^= (uint16_t)(sem << 8);
+  return max ? (uint16_t)(sem % max) : 0;
+}
+
+// Arcoiris sin usar CHSV: mas chico en flash y suficiente para el festejo.
+CRGB Display7Seg::rueda(uint8_t pos) {
+  if (pos < 85)  return CRGB(255 - pos * 3, pos * 3, 0);
+  if (pos < 170) { pos -= 85;  return CRGB(0, 255 - pos * 3, pos * 3); }
+  pos -= 170;    return CRGB(pos * 3, 0, 255 - pos * 3);
+}
+
+// Latido triangular 0-255 a partir del reloj, con piso PULSO_MIN.
+uint8_t Display7Seg::pulso() const {
+  const uint16_t t = (uint16_t)((millis() / 6) % 512);
+  uint16_t v = (t < 256) ? t : (511 - t);
+  if (v < PULSO_MIN) v = PULSO_MIN;
+  return (uint8_t)v;
+}
+
+void Display7Seg::fadeTeam(uint8_t team, uint8_t amount) {
+  const uint16_t start = teamOffset(team);
+  for (uint16_t i = 0; i < LEDS_PER_TEAM; i++) {
+    CRGB& c = leds_[start + i];
+    c = escalar(c, amount);
+  }
+}
+
+void Display7Seg::drawResetProgress(uint8_t pct) {
+  clear();
+  const uint16_t n = (uint16_t)(((uint32_t)NUM_LEDS * pct) / 100);
+  for (uint16_t i = 0; i < n && i < NUM_LEDS; i++) leds_[i] = CRGB(255, 0, 0);
+  FastLED.show();
+}
+
 void Display7Seg::fillGroup(uint16_t start, uint8_t n, const CRGB& c) {
   for (uint8_t i = 0; i < n; i++) {
     if (start + i < NUM_LEDS) leds_[start + i] = c;
@@ -47,8 +93,8 @@ void Display7Seg::drawTeam(uint8_t team, const MatchState& st) {
     if (v >= 10) tens = Glyph::DIGITS[(v / 10) % 10];
     ones = Glyph::DIGITS[v % 10];
   } else if (st.phase == PHASE_MATCH_OVER) {
-    if (st.winner == team) { tens = Glyph::P;    ones = Glyph::O_LOW; }  // "Po"
-    else                   { tens = Glyph::DASH; ones = Glyph::DASH;  }  // "--"
+    if (st.winner != team) return;                 // el perdedor queda APAGADO
+    tens = Glyph::P; ones = Glyph::O_LOW;          // el ganador muestra "Po"
   } else {
     switch (st.points[team]) {
       case P_0:   tens = Glyph::BLANK;     ones = Glyph::DIGITS[0]; break;
@@ -59,13 +105,17 @@ void Display7Seg::drawTeam(uint8_t team, const MatchState& st) {
     }
   }
 
-  const CRGB cPts = (st.phase == PHASE_MATCH_OVER && st.winner == team)
-                      ? (CRGB)COLOR_WIN : (CRGB)COLOR_POINTS;
+  const bool fin = (st.phase == PHASE_MATCH_OVER);
+  const uint8_t f = fin ? pulso() : 255;         // el ganador late despacio
+  const CRGB cPts = fin ? escalar(COLOR_WIN, f) : (CRGB)COLOR_POINTS;
+
   drawGlyph(oPointsTens(team), LEDS_PER_SEG_BIG, tens, cPts);
   drawGlyph(oPointsOnes(team), LEDS_PER_SEG_BIG, ones, cPts);
 
-  drawGlyph(oGames(team), LEDS_PER_SEG_SMALL, Glyph::DIGITS[st.games[team] % 10], COLOR_GAMES);
-  drawGlyph(oSets(team),  LEDS_PER_SEG_TINY,  Glyph::DIGITS[st.sets[team]  % 10], COLOR_SETS);
+  if (!fin)
+    drawGlyph(oGames(team), LEDS_PER_SEG_SMALL, Glyph::DIGITS[st.games[team] % 10], COLOR_GAMES);
+  drawGlyph(oSets(team), LEDS_PER_SEG_TINY, Glyph::DIGITS[st.sets[team] % 10],
+            fin ? escalar(COLOR_SETS, f) : (CRGB)COLOR_SETS);
 }
 
 // --------------------------- indicadores del centro -------------------------
@@ -138,8 +188,65 @@ void Display7Seg::animSetWon(uint8_t team) {
   for (uint8_t k = 0; k < 4; k++) { flashTeam(team, COLOR_SETS, 120); delay(80); }
 }
 
+// ---------------------------- festejo de partido ----------------------------
+// 1) se apaga el perdedor y el centro
+// 2) fuegos artificiales en el bloque del ganador
+// 3) cometa que lo barre
+// 4) barrido arcoiris
+// Despues queda el "Po" del ganador latiendo hasta el reset (ver drawTeam).
 void Display7Seg::animMatchWon(uint8_t team) {
-  for (uint8_t k = 0; k < 8; k++) { flashTeam(team, COLOR_WIN, 150); delay(100); }
+  const uint16_t gana  = teamOffset(team);
+  const uint16_t pierde = teamOffset(team ^ 1);
+
+  // 1) apagar todo menos el ganador
+  for (uint8_t k = 0; k < 10; k++) {
+    fadeTeam(team ^ 1, 180);
+    for (uint16_t i = 0; i < LEDS_CENTER; i++)
+      leds_[CENTER_OFFSET + i] = escalar(leds_[CENTER_OFFSET + i], 180);
+    FastLED.show();
+    delay(40);
+  }
+  fillGroup(pierde, LEDS_PER_TEAM, CRGB::Black);
+  fillGroup(CENTER_OFFSET, LEDS_CENTER, CRGB::Black);
+  FastLED.show();
+  delay(150);
+
+  // 2) fuegos artificiales
+  for (uint8_t f = 0; f < CELEBRA_FUEGOS; f++) {
+    for (uint8_t k = 0; k < 16; k++) {
+      fillGroup(gana, LEDS_PER_TEAM, CRGB::Black);
+      const CRGB chispa = (k < 8) ? CRGB(255, 255, 180) : CRGB(255, 110, 0);
+      for (uint8_t s = 0; s < 10; s++)
+        leds_[gana + rnd16(LEDS_PER_TEAM)] = chispa;
+      FastLED.show();
+      delay(45);
+    }
+    fillGroup(gana, LEDS_PER_TEAM, CRGB::Black);
+    FastLED.show();
+    delay(120);
+  }
+
+  // 3) cometa
+  for (uint8_t p = 0; p < CELEBRA_COMETAS; p++) {
+    for (uint16_t i = 0; i < LEDS_PER_TEAM; i++) {
+      fadeTeam(team, 170);
+      leds_[gana + i] = COLOR_WIN;
+      FastLED.show();
+      delay(5);
+    }
+  }
+
+  // 4) arcoiris
+#if CELEBRA_ARCOIRIS
+  for (uint16_t h = 0; h < 256 * 2; h += 7) {
+    for (uint16_t i = 0; i < LEDS_PER_TEAM; i++)
+      leds_[gana + i] = rueda((uint8_t)(h + i * 2));
+    FastLED.show();
+    delay(10);
+  }
+#endif
+
+  refresh();   // queda el "Po" latiendo
 }
 
 void Display7Seg::animBoot() {

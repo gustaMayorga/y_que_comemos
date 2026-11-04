@@ -125,21 +125,42 @@ PC**, sin placa.
 
 ## 5. Controles
 
-| Acción | Control remoto | Sensor de paleta | Botón de la caja |
-|---|---|---|---|
-| +1 punto Equipo A | CH1 (botón A) | acercar paleta al sensor **izquierdo** | — |
-| +1 punto Equipo B | CH2 (botón B) | acercar paleta al sensor **derecho** | — |
-| Deshacer | CH3 corto | — | — |
-| Cambiar saque | CH3 largo (2 s) | — | — |
-| Ciclar brillo (día/sombra/noche) | CH4 corto | — | pulso corto |
-| Reset del partido | CH4 largo (2 s) | — | 2 s |
+El firmware soporta controles de **3 o 4 botones**, y se elige con
+`REMOTE_BUTTONS` en `config.h`. Con 3 botones las funciones extra se mueven a
+las pulsaciones largas de esos mismos 3, así que **no se pierde nada**.
+
+| Botón | Pulso corto | Pulso largo (1 s) |
+|---|---|---|
+| **1** | **+1 punto Equipo A** | saca el Equipo A |
+| **2** | **+1 punto Equipo B** | saca el Equipo B |
+| **3** | **DESHACER** (repetible) | ciclar brillo |
+| **4** *(sólo si hay 4)* | ciclar brillo | reset del partido |
+
+Y en la caja:
+
+| Botón de la caja | Acción |
+|---|---|
+| Local (D12) | ciclar brillo (día / sombra / noche) |
+| **RESET (A1)** | **mantener 2 s**: mientras se mantiene, una barra roja se va llenando en el panel; al llenarse, resetea el partido. Si se suelta antes, no pasa nada |
+
+Y los sensores de paleta, siempre activos en paralelo con los controles:
+**izquierdo = +1 Equipo A**, **derecho = +1 Equipo B**.
+
+### El botón 3 es un CTRL+Z de verdad
+
+Cada pulsación retrocede **un punto**, sea de quien fuera, hasta `UNDO_DEPTH`
+pasos (8 en Nano, 16 en ESP32). Y como restaura el **estado completo**, también
+deshace un juego, un set o incluso el partido si ese punto los había cerrado.
+Hay un test que verifica exactamente eso.
 
 Feedback de cada acción:
 
 - punto → beep corto agudo + flash del bloque del equipo
 - juego ganado → 2 flashes ámbar + beep
 - set ganado → 4 flashes amarillos + beep largo
-- partido ganado → 8 flashes verdes + `Po` en el display del ganador
+- partido ganado → **festejo**: se apaga el equipo perdedor y el centro, el
+  ganador recibe fuegos artificiales, un cometa que lo barre y un barrido
+  arcoíris; después queda su `Po` **latiendo** hasta el reset
 - deshacer → beep medio; acción inválida → beep grave
 
 ## 6. Antirrebote del gesto de paleta

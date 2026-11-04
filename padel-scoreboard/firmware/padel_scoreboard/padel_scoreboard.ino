@@ -11,12 +11,22 @@
 //  Entradas:  2 sensores de proximidad de paleta + 2 controles RF 433 MHz
 //  Energia:   power bank 5 V / USB-C (ver docs/01-hardware-bom.md)
 //
-//  Controles (receptor RF de 4 canales, 2 llaveros identicos):
-//    CH1 (boton A, llavero Equipo A) -> +1 punto Equipo A
-//    CH2 (boton B, llavero Equipo B) -> +1 punto Equipo B
-//    CH3 corto -> deshacer ultimo punto   |  CH3 largo -> cambiar saque
-//    CH4 corto -> ciclar brillo           |  CH4 2 s   -> reset del partido
-//  El boton de la caja replica CH4.
+//  CONTROLES REMOTOS (se elige 3 o 4 botones con REMOTE_BUTTONS en config.h)
+//
+//    Boton 1 (CH1)  corto -> +1 punto Equipo A     largo -> saca el Equipo A
+//    Boton 2 (CH2)  corto -> +1 punto Equipo B     largo -> saca el Equipo B
+//    Boton 3 (CH3)  corto -> DESHACER (repetible)  largo -> ciclar brillo
+//    Boton 4 (CH4)  corto -> ciclar brillo         largo -> reset del partido
+//                   (solo si REMOTE_BUTTONS == 4)
+//
+//  El boton 3 es el CTRL+Z: cada pulsacion retrocede un punto, sin importar de
+//  que equipo fue, hasta UNDO_DEPTH pasos. Restaura el estado completo, asi que
+//  tambien deshace un juego, un set o el partido si ese punto los habia cerrado.
+//
+//  EN LA CAJA:
+//    boton local  -> ciclar brillo
+//    boton RESET  -> mantener 2 s. Mientras se mantiene, una barra roja se va
+//                    llenando en el panel; al llenarse, resetea el partido.
 // ============================================================================
 
 #include <FastLED.h>
@@ -37,13 +47,17 @@
 ScoreEngine      score;
 Display7Seg      display;
 ProximityCounter proxA, proxB;
-Button           rfPointA, rfPointB, rfUndo, rfMode, btnLocal;
+Button           rfPointA, rfPointB, rfUndo, btnLocal, btnReset;
+#if REMOTE_BUTTONS >= 4
+Button           rfMode;
+#endif
 
 static const uint8_t kBrightSteps[3] = { BRIGHTNESS_DAY, BRIGHTNESS_SHADE, BRIGHTNESS_NIGHT };
 static uint8_t   brightIdx = 0;
 static bool      showServe = true;
 static bool      dirty     = true;
 static uint32_t  tBlink    = 0;
+static bool      mostrandoReset = false;
 
 // ------------------------------- buzzer ------------------------------------
 #if ENABLE_BUZZER
@@ -137,6 +151,8 @@ void setup() {
   Serial.print(F(" (por equipo: "));       Serial.print(LEDS_PER_TEAM);
   Serial.print(F(", centro: "));           Serial.print(LEDS_CENTER);
   Serial.println(F(")"));
+  Serial.print(F("[padel] controles de "));
+  Serial.print(REMOTE_BUTTONS); Serial.println(F(" botones"));
 
   beepInit();
   display.begin();
@@ -154,11 +170,14 @@ void setup() {
   proxA.begin(PIN_TRIG_A, PIN_ECHO_A);
   proxB.begin(PIN_TRIG_B, PIN_ECHO_B);
 
-  rfPointA.begin(PIN_RF_CH1, true);
-  rfPointB.begin(PIN_RF_CH2, true);
-  rfUndo.begin(PIN_RF_CH3, true);
-  rfMode.begin(PIN_RF_CH4, true);
+  rfPointA.begin(PIN_RF_CH1, true, BTN_LONG_MS);
+  rfPointB.begin(PIN_RF_CH2, true, BTN_LONG_MS);
+  rfUndo.begin(PIN_RF_CH3,   true, BTN_LONG_MS);
+#if REMOTE_BUTTONS >= 4
+  rfMode.begin(PIN_RF_CH4,   true, BTN_LONG_MS);
+#endif
   btnLocal.begin(PIN_BTN_LOCAL, false);
+  btnReset.begin(PIN_BTN_RESET, false, RESET_HOLD_MS);
 
   beep(1400, 80);
   draw();
@@ -167,17 +186,43 @@ void setup() {
 
 // ------------------------------------ loop ---------------------------------
 void loop() {
-  // --- controles RF + boton de la caja ---
-  rfPointA.poll(); rfPointB.poll(); rfUndo.poll(); rfMode.poll(); btnLocal.poll();
+  // --- controles RF + botones de la caja ---
+  rfPointA.poll(); rfPointB.poll(); rfUndo.poll();
+  btnLocal.poll(); btnReset.poll();
+#if REMOTE_BUTTONS >= 4
+  rfMode.poll();
+#endif
 
-  if (rfPointA.pressedShort() || rfPointA.pressedLong()) onPoint(0);
-  if (rfPointB.pressedShort() || rfPointB.pressedLong()) onPoint(1);
+  // Boton 1 y 2: corto suma punto, largo asigna el saque a ese equipo
+  if (rfPointA.pressedShort()) onPoint(0);
+  if (rfPointA.pressedLong())  { score.setServing(0); beep(1000, 60); dirty = true; }
+  if (rfPointB.pressedShort()) onPoint(1);
+  if (rfPointB.pressedLong())  { score.setServing(1); beep(1000, 60); dirty = true; }
 
+  // Boton 3: CTRL+Z. Corto deshace un paso (se puede repetir), largo cambia brillo
   if (rfUndo.pressedShort()) onUndo();
-  if (rfUndo.pressedLong())  { score.toggleServing(); beep(1000, 60); dirty = true; }
+  if (rfUndo.pressedLong())  cycleBrightness();
 
-  if (rfMode.pressedShort() || btnLocal.pressedShort()) cycleBrightness();
-  if (rfMode.pressedLong()  || btnLocal.pressedLong())  onReset();
+#if REMOTE_BUTTONS >= 4
+  // Boton 4: la funcion extra del control de 4 botones
+  if (rfMode.pressedShort()) cycleBrightness();
+  if (rfMode.pressedLong())  onReset();
+#endif
+
+  if (btnLocal.pressedShort()) cycleBrightness();
+
+  // --- boton dedicado de RESET, con barra de progreso mientras se mantiene ---
+  if (btnReset.isHeld()) {
+    const uint32_t held = btnReset.heldMs();
+    uint8_t pct = (uint8_t)((held * 100UL) / RESET_HOLD_MS);
+    if (pct > 100) pct = 100;
+    display.drawResetProgress(pct);
+    mostrandoReset = true;
+  } else if (mostrandoReset) {
+    mostrandoReset = false;        // se solto antes de tiempo: volver a dibujar
+    dirty = true;
+  }
+  if (btnReset.pressedLong()) { mostrandoReset = false; onReset(); }
 
   // --- proximidad de paleta (A = izquierda, B = derecha) ---
   if (proxA.poll()) onPoint(0);
@@ -188,7 +233,13 @@ void loop() {
 #endif
 
   // --- refresco ---
+  if (mostrandoReset) return;             // la barra de reset tiene prioridad
+
   if (dirty) { draw(); dirty = false; tBlink = millis(); }
+  else if (display.isCelebrating() && (millis() - tBlink) >= 25) {
+    display.refresh();                    // latido del ganador
+    tBlink = millis();
+  }
   else if (display.isBlinking() && (millis() - tBlink) >= (ICON_BLINK_MS / 2)) {
     display.refresh();                    // titileo del aviso de punto de partido
     tBlink = millis();

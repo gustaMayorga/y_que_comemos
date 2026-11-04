@@ -162,6 +162,38 @@ int main() {
     CHECK((f & FLAG_GAME) && !(f & FLAG_SET), "flag de juego sin flag de set");
   }
 
+  // --- 13) se guarda el resultado de cada set ---
+  { ScoreEngine e; e.begin(rulesGolden());
+    for (int g = 0; g < 6; g++) pts(e, 0, 4);          // set 1: 6-0
+    CHECK(e.state().setScore[0][0] == 6 && e.state().setScore[0][1] == 0, "set 1 queda 6-0");
+    for (int g = 0; g < 4; g++) pts(e, 1, 4);          // 0-4 en el set 2
+    for (int g = 0; g < 6; g++) pts(e, 0, 4);          // set 2: 6-4
+    CHECK(e.state().setScore[1][0] == 6 && e.state().setScore[1][1] == 4, "set 2 queda 6-4");
+    CHECK(e.state().phase == PHASE_MATCH_OVER && e.state().winner == 0, "gana en 2 sets");
+    CHECK(e.state().games[0] == 0, "los games quedan en cero al terminar");
+  }
+
+  // --- 14) CTRL+Z: deshacer varios pasos seguidos ---
+  { ScoreEngine e; e.begin(rulesGolden());
+    e.addPoint(0); e.addPoint(1); e.addPoint(0); e.addPoint(0);  // 40-15
+    CHECK(e.state().points[0] == P_40 && e.state().points[1] == P_15, "40-15");
+    e.undo(); CHECK(e.state().points[0] == P_30, "undo 1");
+    e.undo(); CHECK(e.state().points[0] == P_15, "undo 2");
+    e.undo(); CHECK(e.state().points[1] == P_0,  "undo 3 deshace el del rival");
+    e.undo(); CHECK(e.state().points[0] == P_0 && e.state().points[1] == P_0, "undo 4: 0-0");
+    CHECK(e.state().pointCount == 0, "el contador vuelve a cero");
+  }
+
+  // --- 15) deshacer un punto que habia cerrado el partido ---
+  { ScoreEngine e; e.begin(rulesGolden());
+    for (int s = 0; s < 2; s++) for (int g = 0; g < 6; g++) pts(e, 0, 4);
+    CHECK(e.matchOver(), "partido terminado");
+    e.undo();
+    CHECK(!e.matchOver(), "el undo revive el partido");
+    CHECK(e.state().sets[0] == 1 && e.state().games[0] == 5, "vuelve a 1 set y 5-0");
+    CHECK(e.situation(0) == SIT_MATCH_POINT, "y queda en punto de partido otra vez");
+  }
+
   printf(fails ? "\n%d test(s) FALLARON\n" : "\nTodos los tests OK\n", fails);
   return fails ? 1 : 0;
 }

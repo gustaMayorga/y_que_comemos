@@ -59,8 +59,8 @@ bool ProximityCounter::poll() {
 
 // ---------------------------------- Button ---------------------------------
 
-void Button::begin(uint8_t pin, bool activeHigh) {
-  pin_ = pin; activeHigh_ = activeHigh;
+void Button::begin(uint8_t pin, bool activeHigh, uint16_t longMs) {
+  pin_ = pin; activeHigh_ = activeHigh; longMs_ = longMs;
   pinMode(pin_, activeHigh ? INPUT : INPUT_PULLUP);
 }
 
@@ -76,10 +76,12 @@ void Button::poll() {
   } else if (!raw && stable_) {                     // soltado
     stable_ = false;
     if (!longFired_) shortEvt_ = true;
-  } else if (raw && stable_ && !longFired_ && (now - tDown_ >= BTN_LONG_PRESS_MS)) {
+  } else if (raw && stable_ && !longFired_ && (now - tDown_ >= longMs_)) {
     longFired_ = true; longEvt_ = true;             // dispara sin esperar el release
   }
 }
+
+uint32_t Button::heldMs() const { return stable_ ? (millis() - tDown_) : 0; }
 
 bool Button::pressedShort() { const bool e = shortEvt_; shortEvt_ = false; return e; }
 bool Button::pressedLong()  { const bool e = longEvt_;  longEvt_  = false; return e; }

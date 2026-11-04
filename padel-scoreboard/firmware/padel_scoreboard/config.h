@@ -54,6 +54,7 @@
   #define PIN_RF_CH4      10    // corto: brillo / 2 s: reset del partido
   #define PIN_BUZZER      11
   #define PIN_BTN_LOCAL   12    // a GND, usa INPUT_PULLUP
+  #define PIN_BTN_RESET   A1    // boton dedicado de RESET del panel, a GND
   #define PIN_LDR         A0
   #define ADC_MAX       1023
   // D13 queda libre a proposito (tiene el LED de la placa en paralelo).
@@ -71,6 +72,7 @@
   #define PIN_RF_CH4      17
   #define PIN_BUZZER       4
   #define PIN_BTN_LOCAL   18
+  #define PIN_BTN_RESET   19
   #define PIN_LDR         34    // solo entrada
   #define ADC_MAX       4095
 #endif
@@ -169,6 +171,26 @@
 #define COLOR_SET_POINT   CRGB(255,180,  0)   // amarillo: punto de set
 #define COLOR_MATCH_POINT CRGB(255,  0,  0)   // rojo intermitente: punto de partido
 #define ICON_BLINK_MS      350                // periodo del titileo del punto de partido
+
+// ---------------------------------------------------------------------------
+// 4b) CONTROLES REMOTOS
+//     Cuantos botones tienen los llaveros. El mapeo completo esta en el
+//     encabezado de padel_scoreboard.ino y en docs/03.
+//       3 botones -> B1 +A, B2 +B, B3 deshacer (las funciones extra pasan a
+//                    las pulsaciones largas de los mismos 3 botones)
+//       4 botones -> igual, y B4 agrega brillo / reset del partido
+// ---------------------------------------------------------------------------
+#define REMOTE_BUTTONS       3     // 3 o 4
+#define BTN_LONG_MS       1000     // pulsacion larga de los controles
+
+// ---------------------------------------------------------------------------
+// 4c) FESTEJO DE PARTIDO GANADO
+// ---------------------------------------------------------------------------
+#define CELEBRA_FUEGOS       3     // rondas de destellos
+#define CELEBRA_COMETAS      3     // pasadas del cometa
+#define CELEBRA_ARCOIRIS  true     // barrido arcoiris al final
+#define PULSO_MIN           50     // brillo minimo del latido del ganador (0-255)
+#define RESET_HOLD_MS     2000     // cuanto hay que mantener el boton de reset
 
 // ---------------------------------------------------------------------------
 // 5) REGLAS DEL PARTIDO
