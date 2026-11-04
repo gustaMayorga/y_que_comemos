@@ -48,12 +48,12 @@
   #define PIN_ECHO_A       3
   #define PIN_TRIG_B       4
   #define PIN_ECHO_B       5
-  #define PIN_RF_CH1       7    // +1 punto Equipo A
-  #define PIN_RF_CH2       8    // +1 punto Equipo B
-  #define PIN_RF_CH3       9    // corto: deshacer / largo: cambiar saque
-  #define PIN_RF_CH4      10    // corto: brillo / 2 s: reset del partido
+  #define PIN_RF_CH1       7    // boton 1: corto +1 Equipo A / largo saca A
+  #define PIN_RF_CH2       8    // boton 2: corto +1 Equipo B / largo saca B
+  #define PIN_RF_CH3       9    // boton 3: corto DESHACER    / largo brillo
+  #define PIN_RF_CH4      10    // boton 4: corto brillo      / largo reset
   #define PIN_BUZZER      11
-  #define PIN_BTN_LOCAL   12    // a GND, usa INPUT_PULLUP
+  #define PIN_BTN_LOCAL   12    // brillo; a GND, usa INPUT_PULLUP
   #define PIN_BTN_RESET   A1    // boton dedicado de RESET del panel, a GND
   #define PIN_LDR         A0
   #define ADC_MAX       1023
@@ -66,10 +66,10 @@
   #define PIN_ECHO_A      26    // divisor 1k/2k: el ECHO sale 5 V
   #define PIN_TRIG_B      32
   #define PIN_ECHO_B      33    // divisor 1k/2k
-  #define PIN_RF_CH1      14
-  #define PIN_RF_CH2      27
-  #define PIN_RF_CH3      16
-  #define PIN_RF_CH4      17
+  #define PIN_RF_CH1      14    // boton 1: corto +1 Equipo A / largo saca A
+  #define PIN_RF_CH2      27    // boton 2: corto +1 Equipo B / largo saca B
+  #define PIN_RF_CH3      16    // boton 3: corto DESHACER    / largo brillo
+  #define PIN_RF_CH4      17    // boton 4: corto brillo      / largo reset
   #define PIN_BUZZER       4
   #define PIN_BTN_LOCAL   18
   #define PIN_BTN_RESET   19
