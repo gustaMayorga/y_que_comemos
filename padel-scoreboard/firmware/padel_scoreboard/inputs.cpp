@@ -75,6 +75,9 @@ void Button::poll() {
     stable_ = true; tDown_ = now; longFired_ = false;
   } else if (!raw && stable_) {                     // soltado
     stable_ = false;
+    const uint32_t dur = now - tDown_;
+    relMs_  = (dur > 65000UL) ? 65000 : (uint16_t)dur;
+    relEvt_ = true;
     if (!longFired_) shortEvt_ = true;
   } else if (raw && stable_ && !longFired_ && (now - tDown_ >= longMs_)) {
     longFired_ = true; longEvt_ = true;             // dispara sin esperar el release
@@ -82,6 +85,13 @@ void Button::poll() {
 }
 
 uint32_t Button::heldMs() const { return stable_ ? (millis() - tDown_) : 0; }
+
+bool Button::released(uint16_t* ms) {
+  if (!relEvt_) return false;
+  relEvt_ = false;
+  if (ms) *ms = relMs_;
+  return true;
+}
 
 bool Button::pressedShort() { const bool e = shortEvt_; shortEvt_ = false; return e; }
 bool Button::pressedLong()  { const bool e = longEvt_;  longEvt_  = false; return e; }

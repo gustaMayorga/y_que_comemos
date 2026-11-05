@@ -26,6 +26,7 @@ namespace Glyph {
   const uint8_t DASH  = 0x40;
   const uint8_t DIGITS[10] = {0x3F,0x06,0x5B,0x4F,0x66,0x6D,0x7D,0x07,0x7F,0x6F};
   const uint8_t A = 0x77, D_LOW = 0x5E, P = 0x73, O_LOW = 0x5C;
+  const uint8_t L = 0x38, C_LOW = 0x58, U = 0x3E, F = 0x71, T_LOW = 0x78, B_LOW = 0x7C;
 }
 
 class Display7Seg {
@@ -45,6 +46,13 @@ class Display7Seg {
   void flashTeam(uint8_t team, const CRGB& color, uint16_t ms);
   // Barra roja que se va llenando mientras se mantiene el boton de reset.
   void drawResetProgress(uint8_t pct);
+  // Escribe 4 glifos en los digitos grandes (A-decena, A-unidad, B-decena,
+  // B-unidad). Sirve para la letra del deporte, la pantalla de licencia y el
+  // contador de horas de uso.
+  void mostrarCuatro(const uint8_t g[4], const CRGB& c);
+  // contador: el tanteo se muestra como numero crudo (voley, futbol, basquet)
+  // conSets:  mostrar el digito de sets
+  void setModo(bool contador, bool conSets) { contador_ = contador; conSets_ = conSets; }
   // true mientras el ganador late: hay que refrescar seguido.
   bool isCelebrating() const { return haveLast_ && lastState_.phase == PHASE_MATCH_OVER; }
   void animGameWon(uint8_t team);
@@ -79,4 +87,6 @@ class Display7Seg {
   Situation  lastSit_[2] = { SIT_NONE, SIT_NONE };
   bool       lastShowServe_ = true;
   bool       haveLast_ = false;
+  bool       contador_ = false;
+  bool       conSets_  = true;
 };

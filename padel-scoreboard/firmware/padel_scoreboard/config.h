@@ -193,6 +193,47 @@
 #define RESET_HOLD_MS     2000     // cuanto hay que mantener el boton de reset
 
 // ---------------------------------------------------------------------------
+// 4d) DEPORTE Y DATOS GUARDADOS
+// ---------------------------------------------------------------------------
+// 0=padel  1=tenis  2=voley  3=futbol  4=basquet  5=libre
+#define DEPORTE_INICIAL        0
+#define GUARDAR_CADA_MIN      10    // cada cuanto se vuelca el contador a EEPROM
+
+// ---------------------------------------------------------------------------
+// 4e) LICENCIA TEMPORAL (para equipos entregados en comodato)
+//
+//  IMPORTANTE: el Nano NO tiene reloj. Al apagarse pierde la hora, y el cartel
+//  se apaga entre partido y partido. Por eso la licencia NO cuenta dias de
+//  calendario sino HORAS DE USO (minutos con el cartel encendido), que se
+//  acumulan en la EEPROM y sobreviven al apagado y hasta a recargar el sketch.
+//
+//  Equivalencia practica: 60 horas ~= 30 dias jugando 2 h por dia.
+//  Si hacen falta dias de calendario de verdad, hay que sumar un RTC DS3231
+//  (~2 USD, con pila): ver docs/09.
+//
+//  LIC_HORAS = 0 desactiva todo (version sin licencia, la normal).
+// ---------------------------------------------------------------------------
+#define LIC_HORAS              0    // 0 = sin licencia. Ej: 60
+#define LIC_EXTENSION_HORAS   60    // cuanto suma cada desbloqueo
+
+// Que muestra el cartel cuando vence:
+//   0 = "Lc 00" bien visible (RECOMENDADO: el cliente entiende que tiene que
+//       llamar, no que se rompio, y no lo abre ni lo devuelve como fallado)
+//   1 = discreto: solo un guion titilando
+#define LIC_PANTALLA           0
+
+// Combo secreto para extender la licencia. Cada byte es un paso:
+//   nibble alto = numero de boton del control (1..4)
+//   nibble bajo = 0 corto (<1 s) | 1 largo (1-5 s) | 2 muy largo (>5 s)
+// El de abajo es: boton 1 muy largo, boton 2 muy largo, boton 1 corto,
+//                 boton 1 corto, boton 3 largo
+#define LIC_COMBO_DEF      { 0x12, 0x22, 0x10, 0x10, 0x31 }
+#define LIC_COMBO_PASOS      5
+#define COMBO_TIMEOUT_MS  8000      // si se tarda mas entre pasos, se reinicia
+#define COMBO_LARGO_MS    1000      // a partir de aca es "largo"
+#define COMBO_MUYLARGO_MS 5000      // a partir de aca es "muy largo"
+
+// ---------------------------------------------------------------------------
 // 5) REGLAS DEL PARTIDO
 // ---------------------------------------------------------------------------
 #define DEFAULT_GOLDEN_POINT   true   // 40-40 -> punto de oro (true) o ventajas (false)

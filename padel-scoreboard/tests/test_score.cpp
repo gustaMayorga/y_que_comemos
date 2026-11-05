@@ -8,8 +8,11 @@
 static int fails = 0;
 #define CHECK(cond, msg) do { if (!(cond)) { printf("  FAIL: %s (linea %d)\n", msg, __LINE__); fails++; } } while (0)
 
-static MatchRules rulesGolden() { return MatchRules{ true,  6, 2, true, 7 }; }
-static MatchRules rulesAdv()    { return MatchRules{ false, 6, 2, true, 7 }; }
+//                                 oro  juegos sets tieB obj soloTB setFinal
+static MatchRules rulesGolden() { return MatchRules{ true,  6, 2, true,  7, false,  0 }; }
+static MatchRules rulesAdv()    { return MatchRules{ false, 6, 2, true,  7, false,  0 }; }
+static MatchRules rulesVoley()  { return MatchRules{ false, 0, 3, true, 25, true,  15 }; }
+static MatchRules rulesLibre()  { return MatchRules{ false, 0,99, false, 0, true,   0 }; }
 
 static void pts(ScoreEngine& e, uint8_t team, int n) { for (int i = 0; i < n; i++) e.addPoint(team); }
 
@@ -192,6 +195,46 @@ int main() {
     CHECK(!e.matchOver(), "el undo revive el partido");
     CHECK(e.state().sets[0] == 1 && e.state().games[0] == 5, "vuelve a 1 set y 5-0");
     CHECK(e.situation(0) == SIT_MATCH_POINT, "y queda en punto de partido otra vez");
+  }
+
+  // --- 16) VOLEY: set a 25 con 2 de diferencia, al mejor de 5, 5to a 15 ---
+  { ScoreEngine e; e.begin(rulesVoley());
+    CHECK(e.state().phase == PHASE_TIEBREAK, "voley arranca en modo contador");
+    pts(e, 0, 24); pts(e, 1, 24);
+    CHECK(e.state().sets[0] == 0, "24-24 no cierra");
+    e.addPoint(0);                                  // 25-24
+    CHECK(e.state().sets[0] == 0, "25-24 tampoco: hacen falta 2 de diferencia");
+    e.addPoint(0);                                  // 26-24
+    CHECK(e.state().sets[0] == 1, "26-24 cierra el set");
+    CHECK(e.state().tbPoints[0] == 0 && e.state().tbPoints[1] == 0, "puntos a cero");
+    CHECK(e.state().setScore[0][0] == 26 && e.state().setScore[0][1] == 24, "se guarda 26-24");
+    CHECK(e.state().phase == PHASE_TIEBREAK, "sigue en modo contador");
+  }
+  { // el 5to set va a 15
+    ScoreEngine e; e.begin(rulesVoley());
+    for (int s = 0; s < 2; s++) pts(e, 0, 25);      // 2-0
+    for (int s = 0; s < 2; s++) pts(e, 1, 25);      // 2-2 -> set decisivo
+    CHECK(e.state().sets[0] == 2 && e.state().sets[1] == 2, "2-2 en sets");
+    pts(e, 0, 14);
+    CHECK(e.situation(0) == SIT_MATCH_POINT, "14-0 en el 5to es punto de partido");
+    e.addPoint(0);
+    CHECK(e.state().phase == PHASE_MATCH_OVER, "el 5to set se gana a 15");
+  }
+  { // el saque pasa al que gana el punto (side out)
+    ScoreEngine e; e.begin(rulesVoley());
+    e.setServing(0);
+    e.addPoint(1);
+    CHECK(e.state().serving == 1, "en voley saca el que gano el punto");
+  }
+
+  // --- 17) CONTADOR LIBRE (futbol / basquet): suma sin limite ---
+  { ScoreEngine e; e.begin(rulesLibre());
+    pts(e, 0, 120); pts(e, 1, 98);
+    CHECK(e.state().tbPoints[0] == 120 && e.state().tbPoints[1] == 98, "cuenta mas de 99");
+    CHECK(e.state().sets[0] == 0 && !e.matchOver(), "nunca se cierra solo");
+    CHECK(e.situation(0) == SIT_NONE, "sin objetivo no hay punto de partido");
+    e.undo();
+    CHECK(e.state().tbPoints[1] == 97, "el undo tambien sirve de boton de restar");
   }
 
   printf(fails ? "\n%d test(s) FALLARON\n" : "\nTodos los tests OK\n", fails);

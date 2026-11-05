@@ -5,16 +5,30 @@
 
 // ============================ transicion pura ===============================
 
+// A cuanto se juega el set actual. 0 = sin limite (tanteador libre).
+static uint8_t objetivoSet(const MatchState& s, const MatchRules& r) {
+  if (r.finalSetTarget > 0 && r.setsToWin > 0) {
+    const uint8_t ultimo = (uint8_t)(2 * r.setsToWin - 2);   // indice del set decisivo
+    if ((uint8_t)(s.sets[0] + s.sets[1]) == ultimo) return r.finalSetTarget;
+  }
+  return r.tiebreakTarget;
+}
+
 static void awardSet(MatchState& s, const MatchRules& r, uint8_t team, uint8_t* f) {
   *f |= FLAG_SET;
-  // Guardar con cuantos juegos termino el set ANTES de poner los games en cero.
+  // Guardar como termino el set ANTES de poner los contadores en cero.
+  // En padel/tenis el resultado son los JUEGOS (6-4, 7-6);
+  // en voley son los PUNTOS (25-23), porque no hay juegos.
   const uint8_t idx = s.sets[0] + s.sets[1];
-  if (idx < 3) { s.setScore[idx][0] = s.games[0]; s.setScore[idx][1] = s.games[1]; }
+  if (idx < 3) {
+    s.setScore[idx][0] = r.tiebreakOnly ? s.tbPoints[0] : s.games[0];
+    s.setScore[idx][1] = r.tiebreakOnly ? s.tbPoints[1] : s.games[1];
+  }
   s.sets[team]++;
   s.games[0] = s.games[1] = 0;
   s.points[0] = s.points[1] = P_0;
   s.tbPoints[0] = s.tbPoints[1] = 0;
-  s.phase = PHASE_GAME;
+  s.phase = r.tiebreakOnly ? PHASE_TIEBREAK : PHASE_GAME;
 
   if (s.sets[team] >= r.setsToWin) {
     s.phase  = PHASE_MATCH_OVER;
@@ -49,15 +63,20 @@ bool applyPoint(MatchState& s, const MatchRules& r, uint8_t team, uint8_t* flags
   const uint8_t other = team ^ 1;
   s.pointCount++;
 
-  // ------------------------------- TIE BREAK -------------------------------
+  // ------------------- TIE BREAK / VOLEY / TANTEADOR LIBRE ------------------
   if (s.phase == PHASE_TIEBREAK) {
-    s.tbPoints[team]++;
+    if (s.tbPoints[team] < 254) s.tbPoints[team]++;
     const uint8_t a = s.tbPoints[team], b = s.tbPoints[other];
-    // El saque cambia al primer punto y despues cada 2 puntos.
-    if (((a + b) % 2) == 1) s.serving ^= 1;
-    if (a >= r.tiebreakTarget && (a - b) >= 2) {
-      s.games[team]++;                          // 7-6 en games
-      f |= FLAG_GAME;
+
+    if (r.tiebreakOnly) {
+      s.serving = team;                         // voley: saca quien gano el punto
+    } else if (((a + b) % 2) == 1) {
+      s.serving ^= 1;                           // tenis: al 1er punto y cada 2
+    }
+
+    const uint8_t objetivo = objetivoSet(s, r);
+    if (objetivo > 0 && a >= objetivo && (a - b) >= 2) {
+      if (!r.tiebreakOnly) { s.games[team]++; f |= FLAG_GAME; }   // 7-6 en games
       awardSet(s, r, team, &f);
     }
     if (flagsOut) *flagsOut = f;
@@ -94,7 +113,7 @@ void ScoreEngine::begin(const MatchRules& rules) {
 
 void ScoreEngine::resetMatch() {
   memset(&s_, 0, sizeof(s_));
-  s_.phase   = PHASE_GAME;
+  s_.phase   = r_.tiebreakOnly ? PHASE_TIEBREAK : PHASE_GAME;
   s_.winner  = 0xFF;
   s_.serving = 0;
   histCount_ = 0;

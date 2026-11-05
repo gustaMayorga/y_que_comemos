@@ -34,6 +34,9 @@
 #include "padel_score.h"
 #include "display7seg.h"
 #include "inputs.h"
+#include "deportes.h"
+#include "almacen.h"
+#include "licencia.h"
 #include "net_stub.h"
 
 // A 8 MHz (Pro Mini 3.3 V) el error de reloj a 115200 baudios es ~3.5 % y el
@@ -58,6 +61,10 @@ static bool      showServe = true;
 static bool      dirty     = true;
 static uint32_t  tBlink    = 0;
 static bool      mostrandoReset = false;
+static uint8_t   deporte   = DEPORTE_INICIAL;
+static bool      bloqueado = false;
+static uint32_t  tBloqueo  = 0;
+static bool      faseBloq  = false;
 
 // ------------------------------- buzzer ------------------------------------
 #if ENABLE_BUZZER
@@ -142,6 +149,74 @@ static void autoBrightness() {
 }
 #endif
 
+// ------------------------- deporte / licencia / uso -------------------------
+static void aplicarDeporte(uint8_t d, bool mostrarLetra) {
+  deporte = d % DEP_COUNT;
+  score.begin(REGLAS[deporte]);
+  display.setModo(esContador(deporte), REGLAS[deporte].setsToWin < 90);
+  Serial.print(F("[padel] deporte: ")); Serial.println(deporteNombre(deporte));
+  if (mostrarLetra) {
+    const uint8_t g[4] = { DEP_GLIFO[deporte], Glyph::BLANK,
+                           DEP_GLIFO[deporte], Glyph::BLANK };
+    display.mostrarCuatro(g, COLOR_SETS);
+    delay(1500);
+  }
+  dirty = true;
+}
+
+static void ciclarDeporte() {
+  aplicarDeporte((uint8_t)((deporte + 1) % DEP_COUNT), true);
+  Almacen::datos().deporte = deporte;
+  Almacen::guardarYa();
+  beep(1600, 80);
+}
+
+// Horas de uso acumuladas, en los 4 digitos grandes.
+static void mostrarHorasDeUso() {
+  const uint32_t h = Almacen::minutosUso() / 60UL;
+  const uint8_t g[4] = {
+    (uint8_t)(h >= 1000 ? Glyph::DIGITS[(h / 1000) % 10] : Glyph::BLANK),
+    (uint8_t)(h >= 100  ? Glyph::DIGITS[(h / 100)  % 10] : Glyph::BLANK),
+    (uint8_t)(h >= 10   ? Glyph::DIGITS[(h / 10)   % 10] : Glyph::BLANK),
+    Glyph::DIGITS[h % 10]
+  };
+  display.mostrarCuatro(g, COLOR_GAMES);
+  Serial.print(F("[padel] uso: ")); Serial.print(h); Serial.println(F(" h"));
+  delay(2500);
+  dirty = true;
+}
+
+// Pantalla de licencia vencida. Se refresca sola para que titile.
+static void pantallaBloqueo() {
+  if (millis() - tBloqueo < 600) return;
+  tBloqueo = millis();
+  faseBloq = !faseBloq;
+  if (!faseBloq) {
+    const uint8_t apagado[4] = { Glyph::BLANK, Glyph::BLANK, Glyph::BLANK, Glyph::BLANK };
+    display.mostrarCuatro(apagado, COLOR_POINTS);
+    return;
+  }
+#if LIC_PANTALLA == 0
+  // Visible: "Lc 00". El cliente entiende que tiene que llamar, no que se rompio.
+  const uint8_t g[4] = { Glyph::L, Glyph::C_LOW, Glyph::DIGITS[0], Glyph::DIGITS[0] };
+#else
+  const uint8_t g[4] = { Glyph::BLANK, Glyph::DASH, Glyph::DASH, Glyph::BLANK };
+#endif
+  display.mostrarCuatro(g, COLOR_POINTS);
+}
+
+static void onDesbloqueo() {
+  Almacen::extenderLicencia((uint32_t)LIC_EXTENSION_HORAS * 60UL);
+  bloqueado = false;
+  beep(1200, 120); delay(60); beep(1800, 120); delay(60); beep(2400, 200);
+  const uint8_t g[4] = { Glyph::BLANK, Glyph::O_LOW, Glyph::DIGITS[0], Glyph::DIGITS[0] };
+  display.mostrarCuatro(g, COLOR_WIN);
+  Serial.print(F("[padel] licencia extendida. Desbloqueos: "));
+  Serial.println(Almacen::datos().desbloqueos);
+  delay(1800);
+  dirty = true;
+}
+
 // ----------------------------------- setup ---------------------------------
 void setup() {
   Serial.begin(SERIAL_BAUD);
@@ -155,17 +230,20 @@ void setup() {
   Serial.print(REMOTE_BUTTONS); Serial.println(F(" botones"));
 
   beepInit();
+  Almacen::begin();
+  Licencia::begin();
   display.begin();
   display.animBoot();
 
-  const MatchRules rules = {
-    DEFAULT_GOLDEN_POINT,
-    DEFAULT_GAMES_PER_SET,
-    DEFAULT_SETS_TO_WIN,
-    DEFAULT_TIEBREAK,
-    TIEBREAK_TARGET
-  };
-  score.begin(rules);
+  aplicarDeporte(Almacen::datos().deporte, true);
+
+  if (Almacen::licenciaActiva()) {
+    Serial.print(F("[padel] licencia: quedan "));
+    Serial.print(Almacen::minutosRestantes() / 60UL);
+    Serial.println(F(" h de uso"));
+  }
+  Serial.print(F("[padel] uso acumulado: "));
+  Serial.print(Almacen::minutosUso() / 60UL); Serial.println(F(" h"));
 
   proxA.begin(PIN_TRIG_A, PIN_ECHO_A);
   proxB.begin(PIN_TRIG_B, PIN_ECHO_B);
@@ -186,12 +264,42 @@ void setup() {
 
 // ------------------------------------ loop ---------------------------------
 void loop() {
+  Almacen::tick();
+
   // --- controles RF + botones de la caja ---
   rfPointA.poll(); rfPointB.poll(); rfUndo.poll();
   btnLocal.poll(); btnReset.poll();
 #if REMOTE_BUTTONS >= 4
   rfMode.poll();
 #endif
+
+  // --- detector del combo de licencia: se alimenta con CADA soltada ---
+  {
+    uint16_t ms = 0;
+    if (rfPointA.released(&ms)) Licencia::evento(1, ms);
+    if (rfPointB.released(&ms)) Licencia::evento(2, ms);
+    if (rfUndo.released(&ms))   Licencia::evento(3, ms);
+#if REMOTE_BUTTONS >= 4
+    if (rfMode.released(&ms))   Licencia::evento(4, ms);
+#endif
+  }
+  if (Licencia::desbloqueoListo()) onDesbloqueo();
+
+  // --- licencia vencida: el cartel no cuenta hasta que se desbloquee ---
+  bloqueado = Almacen::licenciaVencida();
+  if (bloqueado) {
+    // consumir los eventos para que no se disparen despues del desbloqueo
+    rfPointA.pressedShort(); rfPointA.pressedLong();
+    rfPointB.pressedShort(); rfPointB.pressedLong();
+    rfUndo.pressedShort();   rfUndo.pressedLong();
+    btnLocal.pressedShort(); btnLocal.pressedLong();
+    btnReset.pressedShort(); btnReset.pressedLong();
+#if REMOTE_BUTTONS >= 4
+    rfMode.pressedShort();   rfMode.pressedLong();
+#endif
+    pantallaBloqueo();
+    return;
+  }
 
   // Boton 1 y 2: corto suma punto, largo asigna el saque a ese equipo
   if (rfPointA.pressedShort()) onPoint(0);
@@ -210,6 +318,8 @@ void loop() {
 #endif
 
   if (btnLocal.pressedShort()) cycleBrightness();
+  if (btnLocal.pressedLong())  ciclarDeporte();      // mantener 2 s: cambia de deporte
+  if (btnReset.pressedShort()) mostrarHorasDeUso();  // pulso corto: horas de uso
 
   // --- boton dedicado de RESET, con barra de progreso mientras se mantiene ---
   if (btnReset.isHeld()) {

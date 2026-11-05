@@ -30,6 +30,8 @@ difusor, alimentación por power bank o cargador USB.
 
 ## Qué hace el MVP
 
+- **6 deportes** en el mismo cartel, se cambia con un botón: **P**ádel, **t**enis,
+  vóley (**U**), **F**útbol, **b**ásquet y contador **L**ibre.
 - Tanteo completo de pádel: puntos, juegos, sets, **tie break**, **punto de oro**
   configurable (o ventajas), 7-5, partido al mejor de 3, control del saque.
 - **Dos formas de contar**, las dos activas a la vez:

@@ -35,6 +35,16 @@ struct MatchRules {
   uint8_t setsToWin;      // normalmente 2 (al mejor de 3)
   bool    tieBreak;       // 6-6 -> tie break
   uint8_t tiebreakTarget; // normalmente 7
+
+  // --- lo que permite cubrir los otros deportes con el mismo motor ---
+  // tiebreakOnly: no hay escalera 15/30/40 ni juegos. Cada punto suma 1 y el
+  //   set se gana al llegar a tiebreakTarget con 2 de diferencia. Asi funcionan
+  //   el voley (25, y 15 en el set decisivo) y, con target 0, los tanteadores
+  //   libres como futbol y basquet, que suman sin limite.
+  bool    tiebreakOnly;
+  // Objetivo distinto para el ultimo set posible (voley: 15 en el 5to).
+  // 0 = usar siempre tiebreakTarget.
+  uint8_t finalSetTarget;
 };
 
 // Snapshot completo del partido: es lo que se guarda para el UNDO y lo que se

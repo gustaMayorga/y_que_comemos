@@ -43,6 +43,9 @@ class Button {
   bool pressedShort();   // se consume al leer
   bool pressedLong();    // se consume al leer
   bool isHeld() const { return stable_; }        // sigue apretado ahora
+  // true UNA vez al soltar, y deja en ms cuanto estuvo apretado.
+  // Lo usa el detector de combos, que necesita la duracion exacta.
+  bool released(uint16_t* ms);
   uint32_t heldMs() const;                       // hace cuanto que esta apretado
 
  private:
@@ -52,4 +55,6 @@ class Button {
   bool     stable_ = false, lastRaw_ = false;
   uint32_t tChange_ = 0, tDown_ = 0;
   bool     shortEvt_ = false, longEvt_ = false, longFired_ = false;
+  bool     relEvt_ = false;
+  uint16_t relMs_ = 0;
 };

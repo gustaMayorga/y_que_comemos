@@ -60,6 +60,16 @@ void Display7Seg::fadeTeam(uint8_t team, uint8_t amount) {
   }
 }
 
+void Display7Seg::mostrarCuatro(const uint8_t g[4], const CRGB& c) {
+  clear();
+  drawGlyph(oPointsTens(0), LEDS_PER_SEG_BIG, g[0], c);
+  drawGlyph(oPointsOnes(0), LEDS_PER_SEG_BIG, g[1], c);
+  drawGlyph(oPointsTens(1), LEDS_PER_SEG_BIG, g[2], c);
+  drawGlyph(oPointsOnes(1), LEDS_PER_SEG_BIG, g[3], c);
+  FastLED.show();
+  haveLast_ = false;        // lo proximo que se dibuje tiene que ser completo
+}
+
 void Display7Seg::drawResetProgress(uint8_t pct) {
   clear();
   const uint16_t n = (uint16_t)(((uint32_t)NUM_LEDS * pct) / 100);
@@ -112,9 +122,20 @@ void Display7Seg::drawTeam(uint8_t team, const MatchState& st) {
   drawGlyph(oPointsTens(team), LEDS_PER_SEG_BIG, tens, cPts);
   drawGlyph(oPointsOnes(team), LEDS_PER_SEG_BIG, ones, cPts);
 
-  if (!fin)
-    drawGlyph(oGames(team), LEDS_PER_SEG_SMALL, Glyph::DIGITS[st.games[team] % 10], COLOR_GAMES);
-  drawGlyph(oSets(team), LEDS_PER_SEG_TINY, Glyph::DIGITS[st.sets[team] % 10],
+  if (!fin) {
+    uint8_t gGames;
+    if (contador_) {
+      // En los deportes de contador el digito de juegos se reusa como CENTENA
+      // del tanteo, asi el basquet puede pasar de 99 sin agregar hardware.
+      const uint8_t v = st.tbPoints[team];
+      gGames = (v >= 100) ? Glyph::DIGITS[(v / 100) % 10] : Glyph::BLANK;
+    } else {
+      gGames = Glyph::DIGITS[st.games[team] % 10];
+    }
+    drawGlyph(oGames(team), LEDS_PER_SEG_SMALL, gGames, COLOR_GAMES);
+  }
+  drawGlyph(oSets(team), LEDS_PER_SEG_TINY,
+            conSets_ ? Glyph::DIGITS[st.sets[team] % 10] : Glyph::BLANK,
             fin ? escalar(COLOR_SETS, f) : (CRGB)COLOR_SETS);
 }
 
