@@ -1,0 +1,73 @@
+========================================================================
+ MAPA DE LEDS  -  perfil LAYOUT_SPARSE  -  tira de 60 LED/m
+========================================================================
+
+LEDs por segmento: puntos=3  juegos=2  sets=2  iconos=2
+Orden de la cadena dentro de cada digito: A -> B -> C -> D -> E -> F -> G
+
+  digito de PUNTOS  3 LEDs/seg ->   136 x   74 mm (segmento 50 mm)   21 LEDs
+  digito de JUEGOS  2 LEDs/seg ->   103 x   57 mm (segmento 33 mm)   14 LEDs
+  digito de SETS    2 LEDs/seg ->   103 x   57 mm (segmento 33 mm)   14 LEDs
+
+------------------------------------------------------------------------
+ LA CADENA, EN ORDEN (numeros como los cuenta el firmware, desde 0)
+------------------------------------------------------------------------
+  EQUIPO A  puntos decena       LED   0 -  20   (21 LEDs)
+  EQUIPO A  puntos unidad       LED  21 -  41   (21 LEDs)
+  EQUIPO A  juegos              LED  42 -  55   (14 LEDs)
+  EQUIPO A  sets                LED  56 -  69   (14 LEDs)
+  EQUIPO B  puntos decena       LED  70 -  90   (21 LEDs)
+  EQUIPO B  puntos unidad       LED  91 - 111   (21 LEDs)
+  EQUIPO B  juegos              LED 112 - 125   (14 LEDs)
+  EQUIPO B  sets                LED 126 - 139   (14 LEDs)
+  CENTRO    saque equipo A      LED 140 - 141   ( 2 LEDs)
+  CENTRO    saque equipo B      LED 142 - 143   ( 2 LEDs)
+  CENTRO    aviso punto A       LED 144 - 145   ( 2 LEDs)
+  CENTRO    aviso punto B       LED 146 - 147   ( 2 LEDs)
+
+  TOTAL: 148 LEDs   (un rollo de 5 m a 60/m trae 300: sobran 152)
+
+------------------------------------------------------------------------
+ DENTRO DE CADA DIGITO
+------------------------------------------------------------------------
+
+  PUNTOS (3 LEDs por segmento, 21 por digito):
+    posicion 1 de la cadena = segmento A   -> LEDs +0-2
+    posicion 2 de la cadena = segmento B   -> LEDs +3-5
+    posicion 3 de la cadena = segmento C   -> LEDs +6-8
+    posicion 4 de la cadena = segmento D   -> LEDs +9-11
+    posicion 5 de la cadena = segmento E   -> LEDs +12-14
+    posicion 6 de la cadena = segmento F   -> LEDs +15-17
+    posicion 7 de la cadena = segmento G   -> LEDs +18-20
+
+  JUEGOS/SETS (2 LEDs por segmento, 14 por digito):
+    posicion 1 de la cadena = segmento A   -> LEDs +0-1
+    posicion 2 de la cadena = segmento B   -> LEDs +2-3
+    posicion 3 de la cadena = segmento C   -> LEDs +4-5
+    posicion 4 de la cadena = segmento D   -> LEDs +6-7
+    posicion 5 de la cadena = segmento E   -> LEDs +8-9
+    posicion 6 de la cadena = segmento F   -> LEDs +10-11
+    posicion 7 de la cadena = segmento G   -> LEDs +12-13
+
+------------------------------------------------------------------------
+ PLANO DEL PANEL
+------------------------------------------------------------------------
+  bloque de un equipo : 160 x 257 mm
+  columna del centro  : 70 mm de ancho
+  PANEL COMPLETO      : 490 x 307 mm  (~49 x 31 cm)
+
+   <--------------------------- 490 mm --------------------------->
+   +------------------------------------------------------------------+
+   |   EQUIPO A                   SAQUE                    EQUIPO B    |
+   |  +-------+ +-------+        +-----+          +-------+ +-------+  |
+   |  |       | |       |        | < > |          |       | |       |  |   136 mm
+   |  | 3 LED | | 3 LED |        +-----+          | 3 LED | | 3 LED |  |
+   |  +-------+ +-------+        PUNTO            +-------+ +-------+  |
+   |   74mm     74mm         +-----+                                |
+   |  +----+   +----+            | ^ ^ |          +----+   +----+      |   103 mm
+   |  |2 LD|   |2 LD|            +-----+          |2 LD|   |2 LD|      |
+   |  +----+   +----+                              +----+   +----+     |
+   |  JUEGOS   SETS                                JUEGOS   SETS       |
+   +------------------------------------------------------------------+
+        sensor A                                        sensor B
+

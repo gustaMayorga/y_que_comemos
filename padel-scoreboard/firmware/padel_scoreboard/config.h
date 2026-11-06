@@ -33,8 +33,8 @@
 //    densidad. 5 m de tira pueden ser 300 LEDs (a 60/m) o 150 (a 30/m).
 // ---------------------------------------------------------------------------
 //#define LAYOUT_BENCH
-//#define LAYOUT_SPARSE
-#define LAYOUT_DEMO
+#define LAYOUT_SPARSE
+//#define LAYOUT_DEMO
 //#define LAYOUT_FULL
 
 // ---------------------------------------------------------------------------
@@ -104,10 +104,14 @@
   #define LEDS_PER_ICON       3   // flechas y avisos del centro
 #endif
 #ifdef LAYOUT_SPARSE
-  #define LEDS_PER_SEG_BIG    3   // a 30 LED/m: segmento 100 mm, digito ~230 mm
+  // A 60 LED/m estos son los dos tamanos impresos en 3D:
+  //   3 LEDs/segmento -> digito de 136 x 74 mm  (PUNTOS)
+  //   2 LEDs/segmento -> digito de 103 x 57 mm  (JUEGOS y SETS)
+  // A 30 LED/m el mismo perfil da digitos del doble (272 y 206 mm de alto).
+  #define LEDS_PER_SEG_BIG    3
   #define LEDS_PER_SEG_SMALL  2
   #define LEDS_PER_SEG_TINY   2
-  #define LEDS_PER_ICON       1
+  #define LEDS_PER_ICON       2   // 1 solo LED detras de un icono queda flojo
 #endif
 #ifdef LAYOUT_DEMO
   #define LEDS_PER_SEG_BIG    4   // digito ~155 mm, legible a ~45 m

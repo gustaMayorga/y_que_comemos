@@ -9,6 +9,9 @@ difusor, alimentación por power bank o cargador USB.
 > es donde se arrancó. Es autocontenido: se mueve a su propio repo moviendo sólo
 > `padel-scoreboard/`.
 
+> 🔧 **¿Vas a armarlo ahora?** Empezá por **[`montaje/`](montaje/)**: el plano del
+> panel, el mapa de LEDs, el circuito y la checklist, todo en una página.
+
 ## 🧭 Índice de montaje — dónde está cada cosa
 
 | Quiero… | Leer | Herramienta |
@@ -22,6 +25,7 @@ difusor, alimentación por power bank o cargador USB.
 | **Conectar todo (el circuito)** | [`docs/01` §5](docs/01-hardware-bom.md) | — |
 | Conectar el receptor RF | [`docs/01` §5 y §6](docs/01-hardware-bom.md) | — |
 | Alimentación y consumo | [`docs/01` §3](docs/01-hardware-bom.md) | — |
+| **Plano del panel y mapa de LEDs** | **[`montaje/`](montaje/)** | `montaje/mapa_leds.py` |
 | Piezas 3D e impresión | [`3d/README.md`](3d/README.md) | `3d/cartel.scad` |
 | Entender las reglas y el firmware | [`docs/03`](docs/03-reglas-y-firmware.md) | — |
 | Modos de deporte / licencia / horas de uso | [`docs/09`](docs/09-deportes-uso-y-licencia.md) | — |
