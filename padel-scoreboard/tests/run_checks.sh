@@ -20,10 +20,18 @@ for board in BOARD_NANO BOARD_ESP32; do
   for lay in LAYOUT_BENCH LAYOUT_SPARSE LAYOUT_DEMO LAYOUT_FULL; do
     d="$TMP/${board}_${lay}"
     cp -r "$FW" "$d"
-    sed -i -e "s|^#define BOARD_NANO|//#define BOARD_NANO|" \
-           -e "s|^//#define $board|#define $board|" \
-           -e "s|^#define LAYOUT_DEMO|//#define LAYOUT_DEMO|" \
-           -e "s|^//#define $lay|#define $lay|" "$d/config.h"
+    # Comentar TODOS los perfiles y placas activos y despues descomentar solo
+    # los dos que toca. Si se comenta solo el que viene por defecto, al cambiar
+    # ese default quedan dos perfiles activos y todo falla por redefinicion.
+    sed -i -E 's|^#define (LAYOUT_[A-Z]+)[[:space:]]*$|//#define \1|' "$d/config.h"
+    sed -i -E 's|^#define (BOARD_[A-Z0-9]+)[[:space:]]*$|//#define \1|' "$d/config.h"
+    sed -i -E "s|^//#define ($board)[[:space:]]*\$|#define \1|" "$d/config.h"
+    sed -i -E "s|^//#define ($lay)[[:space:]]*\$|#define \1|" "$d/config.h"
+    activos=$(grep -cE "^#define (LAYOUT_|BOARD_)" "$d/config.h")
+    if [ "$activos" != "2" ]; then
+      printf "  %-12s %-13s FALLO: quedaron %s defines activos, deberian ser 2\n" \
+             "$board" "$lay" "$activos"; fail=1; continue
+    fi
     cp "$d/padel_scoreboard.ino" "$d/sketch.cpp"
     if [ "$board" = "BOARD_ESP32" ]; then
       # el stub no emula ledc*: se chequea el nucleo, no el .ino
