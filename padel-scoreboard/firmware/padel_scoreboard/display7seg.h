@@ -78,12 +78,20 @@ class Display7Seg {
   uint16_t oGames(uint8_t t)      const { return teamOffset(t) + 2 * DIGIT_BIG_LEDS; }
   uint16_t oSets(uint8_t t)       const { return oGames(t) + DIGIT_SMALL_LEDS; }
   // Centro: saque A, saque B, punto A, punto B
-  uint16_t oServeIcon(uint8_t t)  const { return CENTER_OFFSET + (uint16_t)t * LEDS_PER_ICON; }
 #if ICONOS_POR_EQUIPO >= 2
-  uint16_t oPointIcon(uint8_t t)  const { return CENTER_OFFSET + (uint16_t)(2 + t) * LEDS_PER_ICON; }
+  #if CENTRO_AGRUPADO
+    // 2 triangulos divididos: punta y cuerpo de A, despues punta y cuerpo de B
+    uint16_t oServeIcon(uint8_t t) const { return CENTER_OFFSET + (uint16_t)(2*t)     * LEDS_PER_ICON; }
+    uint16_t oPointIcon(uint8_t t) const { return CENTER_OFFSET + (uint16_t)(2*t + 1) * LEDS_PER_ICON; }
+  #else
+    // 4 piezas sueltas: las dos flechas de saque y despues los dos avisos
+    uint16_t oServeIcon(uint8_t t) const { return CENTER_OFFSET + (uint16_t)t       * LEDS_PER_ICON; }
+    uint16_t oPointIcon(uint8_t t) const { return CENTER_OFFSET + (uint16_t)(2 + t) * LEDS_PER_ICON; }
+  #endif
 #else
-  // Con un solo icono por equipo, saque y aviso comparten el mismo triangulo.
-  uint16_t oPointIcon(uint8_t t)  const { return oServeIcon(t); }
+  // Un solo triangulo sin dividir: saque y aviso comparten los mismos LEDs.
+  uint16_t oServeIcon(uint8_t t) const { return CENTER_OFFSET + (uint16_t)t * LEDS_PER_ICON; }
+  uint16_t oPointIcon(uint8_t t) const { return oServeIcon(t); }
 #endif
 
   CRGB       leds_[NUM_LEDS];

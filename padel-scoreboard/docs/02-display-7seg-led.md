@@ -102,17 +102,59 @@ con un color.
         ▲  (triángulo aviso)       ● ● ●
 ```
 
-**Cuántos iconos**: el diseño lleva **2 por equipo** (4 en total): una flecha de
-saque y un triángulo de aviso. Se pueden ver los dos a la vez.
+### 🏆 El triángulo dividido en dos zonas (la mejor opción)
 
-Si imprimiste **sólo 2 triángulos**, hay un modo combinado: **un solo triángulo
-por equipo** que hace las dos cosas según el color. Si hay un punto en juego
-manda el aviso; si no, muestra el saque en verde. Se activa con una línea:
+Siempre hay **dos informaciones por equipo**: el **saque** y el **aviso de
+punto**. En vez de dos ventanas separadas, van en **un solo triángulo partido
+en dos zonas** por una pared interna:
+
+```
+         ╱│                    CUERPO  = aviso de punto
+       ╱  │                              (cyan / amarillo / rojo titilando)
+     ╱ C  │ P  ◄── punta       PUNTA   = saque (verde)
+       ╲  │
+         ╲│
+          ▲
+     pared divisoria
+```
+
+Por qué conviene sobre las 4 piezas sueltas:
+
+- **2 piezas en vez de 4**: menos imprimir, menos montar, centro más compacto
+- **Se ven las dos cosas a la vez**, igual que con 4 ventanas
+- **Agrupado por equipo**: leés el estado de un equipo de un vistazo, en vez de
+  buscar en dos columnas distintas
+- La punta apunta al equipo, lo que refuerza de qué lado está el saque
+
+El **cuerpo** lleva el aviso porque es la zona grande y es la información más
+importante; la **punta**, más chica, lleva el saque.
+
+> ⚠️ **Hace falta una pared interna de verdad entre las dos zonas.** Sin ella
+> los dos colores se mezclan por adentro del difusor y queda un color sucio que
+> no se entiende. La pieza `icono_celda` del `.scad` ya la trae.
+
+**Cuántos LEDs por zona**: con triángulos de ~40 mm entra **1 por zona** (2 por
+triángulo). Para poner **2 por zona** el triángulo tiene que medir unos **70 mm**
+de punta a base.
+
+### Las tres configuraciones posibles
 
 ```c
-#define ICONOS_POR_EQUIPO  1    // 2 = saque y aviso separados (4 iconos)
-                                // 1 = un solo triangulo por equipo (2 iconos)
+// a) RECOMENDADA: 2 triangulos divididos en 2 zonas
+#define ICONOS_POR_EQUIPO  2
+#define CENTRO_AGRUPADO    true     // cadena: puntaA, cuerpoA, puntaB, cuerpoB
+
+// b) 4 piezas sueltas (2 flechas de saque + 2 triangulos de aviso)
+#define ICONOS_POR_EQUIPO  2
+#define CENTRO_AGRUPADO    false    // cadena: saqueA, saqueB, avisoA, avisoB
+
+// c) 2 triangulos SIN dividir: uno por equipo, las dos cosas por color.
+//    Si hay punto en juego manda el aviso; si no, muestra el saque en verde.
+#define ICONOS_POR_EQUIPO  1
 ```
+
+`CENTRO_AGRUPADO` sólo cambia **el orden en la cadena**, para que puedas soldar
+cada triángulo completo antes de pasar al siguiente.
 
 **Flechas de saque**: se enciende en **verde** la del equipo que saca. Apuntan
 hacia el equipo, así que de un vistazo se ve de qué lado está el saque.

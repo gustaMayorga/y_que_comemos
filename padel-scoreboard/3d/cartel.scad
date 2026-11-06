@@ -13,6 +13,7 @@
 // "mascara"    -> plancha frontal con las ventanas de los segmentos
 // "celda"      -> una sola celda de segmento suelta (para probar el calce)
 // "icono"      -> mascara de un icono del centro (flecha o triangulo)
+// "icono_celda"-> paredes del icono, con la divisoria entre punta y cuerpo
 // "powerbank"  -> bandeja porta power bank para la parte de atras
 // "previo"     -> vista de todo junto (solo para mirar)
 PIEZA = "rejilla";
@@ -125,17 +126,54 @@ module celda_suelta(t) {
   celda_paredes(0, 0, largo_luz(t), CELDA_W, ALTO);
 }
 
-// Mascara de un icono del centro.
+// --------------------------- iconos del centro ------------------------------
+// ICONO_DIVIDIDO: el triangulo se parte en dos zonas con una pared en el medio.
+//   CUERPO (la parte ancha) = aviso de punto   |   PUNTA = saque
+// Hacen falta las dos zonas separadas por una PARED REAL: si no, los dos
+// colores se mezclan por adentro y queda un color sucio.
+ICONO_DIVIDIDO = true;
+ICONO_CORTE    = 0.45;   // en que fraccion del largo va la pared divisoria
+
+module tri(forma, lado) {
+  if (forma == "flecha_izq")       polygon([[lado,0],[lado,lado],[0,lado/2]]);
+  else if (forma == "flecha_der")  polygon([[0,0],[0,lado],[lado,lado/2]]);
+  else                             polygon([[0,0],[lado,0],[lado/2,lado]]);
+}
+
+// Mascara del icono: una ventana, o dos si esta dividido.
 module icono(forma) {
-  lado = largo_luz("tiny");
+  lado = largo_luz("tiny") * (ICONO_DIVIDIDO ? 2 : 1);
+  corte = lado * ICONO_CORTE;
   difference() {
     translate([-PARED, -PARED, 0])
       cube([lado + 2*PARED, lado + 2*PARED, MASCARA_ESP]);
-    translate([0, 0, -1]) linear_extrude(MASCARA_ESP + 2)
-      if (forma == "flecha_izq")      polygon([[lado,0],[lado,lado],[0,lado/2]]);
-      else if (forma == "flecha_der") polygon([[0,0],[0,lado],[lado,lado/2]]);
-      else                            polygon([[0,0],[lado,0],[lado/2,lado]]);
+    if (!ICONO_DIVIDIDO) {
+      translate([0, 0, -1]) linear_extrude(MASCARA_ESP + 2) tri(forma, lado);
+    } else {
+      // zona CUERPO: del borde hasta la pared
+      translate([0, 0, -1]) linear_extrude(MASCARA_ESP + 2)
+        intersection() { tri(forma, lado); translate([0, -1]) square([corte, lado + 2]); }
+      // zona PUNTA: de la pared hasta la punta
+      translate([0, 0, -1]) linear_extrude(MASCARA_ESP + 2)
+        intersection() { tri(forma, lado);
+                         translate([corte + PARED, -1]) square([lado, lado + 2]); }
+    }
   }
+}
+
+// Paredes del icono, con la divisoria entre las dos zonas.
+module icono_celda(forma) {
+  lado = largo_luz("tiny") * (ICONO_DIVIDIDO ? 2 : 1);
+  corte = lado * ICONO_CORTE;
+  linear_extrude(ALTO) difference() {
+    offset(r = PARED) tri(forma, lado);
+    tri(forma, lado);
+  }
+  if (ICONO_DIVIDIDO)   // la pared que separa punta de cuerpo
+    linear_extrude(ALTO) intersection() {
+      tri(forma, lado);
+      translate([corte, -1]) square([PARED, lado + 2]);
+    }
 }
 
 // Bandeja porta power bank, se atornilla o se ata con precintos atras del panel.
@@ -193,6 +231,7 @@ module pieza_elegida() {
   else if (PIEZA == "mascara")   mascara(TAMANO);
   else if (PIEZA == "celda")     celda_suelta(TAMANO);
   else if (PIEZA == "icono")     icono(ICONO);
+  else if (PIEZA == "icono_celda") icono_celda(ICONO);
   else if (PIEZA == "powerbank") powerbank();
   else if (PIEZA == "previo") {
     rejilla("big");
@@ -202,7 +241,8 @@ module pieza_elegida() {
   }
 }
 
-if (PIEZA == "powerbank" || PIEZA == "celda" || PIEZA == "icono" || PIEZA == "previo")
+if (PIEZA == "powerbank" || PIEZA == "celda" || PIEZA == "icono"
+    || PIEZA == "icono_celda" || PIEZA == "previo")
   pieza_elegida();
 else if (MITAD == "completo")
   pieza_elegida();

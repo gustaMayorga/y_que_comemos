@@ -169,15 +169,35 @@
 // Por equipo: [puntos decena][puntos unidad][juegos][sets]
 #define LEDS_PER_TEAM   (2 * DIGIT_BIG_LEDS + DIGIT_SMALL_LEDS + DIGIT_TINY_LEDS)
 // ---------------------------------------------------------------------------
-//  Cuantos iconos por equipo lleva la columna del centro:
-//    2 = una flecha de SAQUE y un triangulo de AVISO DE PUNTO por equipo
-//        (4 iconos en total). Es lo mas claro: se ve el saque y el aviso al
-//        mismo tiempo.
-//    1 = UN solo triangulo por equipo (2 en total), que hace las dos cosas
-//        segun el color. Si hay punto en juego manda el aviso; si no, muestra
-//        el saque en verde. Util si imprimiste solo 2 triangulos.
+//  LA COLUMNA DEL CENTRO
+//
+//  Siempre hay DOS informaciones por equipo: el SAQUE y el AVISO DE PUNTO.
+//  Lo que cambia es como estan repartidas fisicamente.
+//
+//  ICONOS_POR_EQUIPO = 2  -> cada informacion tiene su propia ventana.
+//                            Con CENTRO_AGRUPADO false son 4 piezas sueltas;
+//                            con true son 2 TRIANGULOS DIVIDIDOS EN 2 ZONAS
+//                            (punta y cuerpo), que es la opcion recomendada:
+//                            menos piezas y se lee por equipo de un vistazo.
+//  ICONOS_POR_EQUIPO = 1  -> 2 triangulos SIN dividir. Uno solo por equipo que
+//                            hace las dos cosas por color: si hay punto en
+//                            juego manda el aviso, si no muestra el saque.
+//
+//  CENTRO_AGRUPADO cambia el ORDEN en la cadena:
+//     false -> saque A, saque B, aviso A, aviso B   (4 piezas sueltas)
+//     true  -> saque A, aviso A, saque B, aviso B   (2 triangulos divididos:
+//              se suelda cada triangulo completo antes de pasar al siguiente)
+//
+//  En el triangulo dividido: PUNTA = saque (verde), CUERPO = aviso de punto.
+//  El cuerpo es mas grande y lleva la informacion mas importante.
+//  OJO: hace falta una PARED INTERNA entre las dos zonas o los colores se
+//  mezclan y queda un color sucio. Ver docs/02.
+//
+//  Cuantos LEDs por zona: con triangulos de ~40 mm entra 1; para 2 por zona el
+//  triangulo tiene que medir unos 70 mm de punta a base.
 // ---------------------------------------------------------------------------
 #define ICONOS_POR_EQUIPO  2
+#define CENTRO_AGRUPADO    true
 
 #define LEDS_CENTER     (2 * ICONOS_POR_EQUIPO * LEDS_PER_ICON)
 #define NUM_LEDS        (2 * LEDS_PER_TEAM + LEDS_CENTER)

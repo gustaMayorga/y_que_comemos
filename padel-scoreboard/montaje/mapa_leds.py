@@ -58,9 +58,15 @@ for equipo in ("A", "B"):
         i += n * 7
 m = re.search(r"#define ICONOS_POR_EQUIPO\s+(\d+)", txt)
 POR_EQ = int(m.group(1)) if m else 2
-nombres = (("saque equipo A", "saque equipo B", "aviso punto A", "aviso punto B")
-           if POR_EQ >= 2 else
-           ("icono equipo A (saque+aviso)", "icono equipo B (saque+aviso)"))
+m = re.search(r"#define CENTRO_AGRUPADO\s+(\w+)", txt)
+AGRUP = (m.group(1) == "true") if m else False
+if POR_EQ < 2:
+    nombres = ("triangulo A (saque+aviso)", "triangulo B (saque+aviso)")
+elif AGRUP:
+    nombres = ("triangulo A - PUNTA (saque)", "triangulo A - CUERPO (aviso)",
+               "triangulo B - PUNTA (saque)", "triangulo B - CUERPO (aviso)")
+else:
+    nombres = ("saque equipo A", "saque equipo B", "aviso punto A", "aviso punto B")
 for nom in nombres:
     bloques.append((f"CENTRO    {nom}", i, i + ICON - 1, ICON))
     i += ICON

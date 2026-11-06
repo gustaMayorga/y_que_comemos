@@ -20,10 +20,10 @@ Orden de la cadena dentro de cada digito: A -> B -> C -> D -> E -> F -> G
   EQUIPO B  puntos unidad       LED  91 - 111   (21 LEDs)
   EQUIPO B  juegos              LED 112 - 125   (14 LEDs)
   EQUIPO B  sets                LED 126 - 139   (14 LEDs)
-  CENTRO    saque equipo A      LED 140 - 141   ( 2 LEDs)
-  CENTRO    saque equipo B      LED 142 - 143   ( 2 LEDs)
-  CENTRO    aviso punto A       LED 144 - 145   ( 2 LEDs)
-  CENTRO    aviso punto B       LED 146 - 147   ( 2 LEDs)
+  CENTRO    triangulo A - PUNTA (saque)  LED 140 - 141   ( 2 LEDs)
+  CENTRO    triangulo A - CUERPO (aviso)  LED 142 - 143   ( 2 LEDs)
+  CENTRO    triangulo B - PUNTA (saque)  LED 144 - 145   ( 2 LEDs)
+  CENTRO    triangulo B - CUERPO (aviso)  LED 146 - 147   ( 2 LEDs)
 
   TOTAL: 148 LEDs   (un rollo de 5 m a 60/m trae 300: sobran 152)
 
