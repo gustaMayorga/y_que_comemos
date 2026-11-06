@@ -9,6 +9,33 @@ difusor, alimentación por power bank o cargador USB.
 > es donde se arrancó. Es autocontenido: se mueve a su propio repo moviendo sólo
 > `padel-scoreboard/`.
 
+## 🧭 Índice de montaje — dónde está cada cosa
+
+| Quiero… | Leer | Herramienta |
+|---|---|---|
+| Saber qué componentes necesito | [`docs/05`](docs/05-inventario-demo-nano.md) · [`docs/07`](docs/07-confirmacion-y-lista-de-compras.md) | — |
+| Ver si mi placa funciona | [`docs/06` §6](docs/06-identificar-lo-que-tengo.md) | **`tools/diag_nano`** |
+| Identificar / probar mi tira LED | [`docs/06` §1](docs/06-identificar-lo-que-tengo.md) | **`tools/diag_leds`** |
+| **Cortar la tira** | [`docs/02` §6b](docs/02-display-7seg-led.md) | — |
+| **Armar y probar UN dígito** | [`docs/02` §5 y §7](docs/02-display-7seg-led.md) | **`tools/test_segmentos`** |
+| Que se lea a pleno sol | [`docs/02` §6](docs/02-display-7seg-led.md) | — |
+| **Conectar todo (el circuito)** | [`docs/01` §5](docs/01-hardware-bom.md) | — |
+| Conectar el receptor RF | [`docs/01` §5 y §6](docs/01-hardware-bom.md) | — |
+| Alimentación y consumo | [`docs/01` §3](docs/01-hardware-bom.md) | — |
+| Piezas 3D e impresión | [`3d/README.md`](3d/README.md) | `3d/cartel.scad` |
+| Entender las reglas y el firmware | [`docs/03`](docs/03-reglas-y-firmware.md) | — |
+| Modos de deporte / licencia / horas de uso | [`docs/09`](docs/09-deportes-uso-y-licencia.md) | — |
+| Problemas al cargar por USB | [`docs/06` §6](docs/06-identificar-lo-que-tengo.md) | — |
+
+**Los 4 firmwares:**
+
+| | Para qué |
+|---|---|
+| [`tools/diag_nano`](tools/diag_nano) | ¿funciona la placa? No necesita ningún componente |
+| [`tools/diag_leds`](tools/diag_leds) | ¿qué tira tengo? Cuenta LEDs, orden de color, consumo |
+| [`tools/test_segmentos`](tools/test_segmentos) | **prueba UN dígito segmento por segmento** |
+| [`firmware/padel_scoreboard`](firmware/padel_scoreboard) | el tanteador completo |
+
 ## Qué muestra
 
 ```

@@ -87,6 +87,9 @@ class Display7Seg {
   Situation  lastSit_[2] = { SIT_NONE, SIT_NONE };
   bool       lastShowServe_ = true;
   bool       haveLast_ = false;
+  // posSeg_[segmento logico] = posicion fisica en la cadena, derivada de
+  // CADENA_SEGMENTOS. Asi se puede soldar en cualquier orden.
+  uint8_t    posSeg_[7];
   bool       contador_ = false;
   bool       conSets_  = true;
 };

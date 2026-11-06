@@ -122,6 +122,42 @@
   #define LEDS_PER_ICON       1
 #endif
 
+// ---------------------------------------------------------------------------
+// 3c) EN QUE ORDEN ESTAN SOLDADOS LOS SEGMENTOS
+//
+//  El firmware no sabe cual segmento es cual: lo define el orden en que estan
+//  soldados en la cadena. Aca se le dice cual soldaste primero, cual segundo, etc.
+//
+//        AAAA
+//       F    B      SEG_A arriba     SEG_D abajo
+//       F    B      SEG_B arr-der    SEG_E ab-izq
+//        GGGG       SEG_C ab-der     SEG_F arr-izq
+//       E    C      SEG_G el del medio
+//       E    C
+//        DDDD
+//
+//  Dos ordenes comunes (los dos funcionan, elegi el que te quede comodo):
+//
+//  a) VUELTA DE RELOJ (el que recomendamos): rodea por afuera y termina al medio
+//       { SEG_A, SEG_B, SEG_C, SEG_D, SEG_E, SEG_F, SEG_G }
+//
+//  b) ZIGZAG DE LECTURA: arriba, los dos de arriba, el medio, los dos de abajo,
+//     abajo. Es el que sale natural si vas numerando como se lee:
+//       { SEG_A, SEG_F, SEG_B, SEG_G, SEG_E, SEG_C, SEG_D }
+//
+//  Si no te acordas como quedo, corre tools/test_segmentos: enciende la cadena
+//  posicion por posicion y anotas que segmento prendio en cada una.
+// ---------------------------------------------------------------------------
+#define SEG_A 0
+#define SEG_B 1
+#define SEG_C 2
+#define SEG_D 3
+#define SEG_E 4
+#define SEG_F 5
+#define SEG_G 6
+
+#define CADENA_SEGMENTOS { SEG_A, SEG_B, SEG_C, SEG_D, SEG_E, SEG_F, SEG_G }
+
 #define DIGIT_BIG_LEDS    (LEDS_PER_SEG_BIG   * 7)
 #define DIGIT_SMALL_LEDS  (LEDS_PER_SEG_SMALL * 7)
 #define DIGIT_TINY_LEDS   (LEDS_PER_SEG_TINY  * 7)

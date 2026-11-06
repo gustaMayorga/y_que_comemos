@@ -1,6 +1,11 @@
 #include "display7seg.h"
 
 void Display7Seg::begin() {
+  // Invertir CADENA_SEGMENTOS: de "que segmento ocupa cada posicion" a
+  // "que posicion ocupa cada segmento", que es lo que necesita drawSegment.
+  const uint8_t cadena[7] = CADENA_SEGMENTOS;
+  for (uint8_t i = 0; i < 7; i++) posSeg_[cadena[i] % 7] = i;
+
   FastLED.addLeds<LED_CHIPSET, PIN_LED_DATA, LED_COLOR_ORDER>(leds_, NUM_LEDS);
   // Para tiras con CLOCK (APA102 / WS2801 / LPD8806) usar esta linea en su lugar
   // y definir PIN_LED_CLOCK en config.h:
@@ -84,7 +89,9 @@ void Display7Seg::fillGroup(uint16_t start, uint8_t n, const CRGB& c) {
 }
 
 void Display7Seg::drawSegment(uint16_t start, uint8_t ledsPerSeg, uint8_t seg, const CRGB& c) {
-  fillGroup(start + (uint16_t)seg * ledsPerSeg, ledsPerSeg, c);
+  // seg es el segmento LOGICO (A..G); posSeg_ dice en que lugar de la cadena
+  // quedo soldado fisicamente.
+  fillGroup(start + (uint16_t)posSeg_[seg % 7] * ledsPerSeg, ledsPerSeg, c);
 }
 
 void Display7Seg::drawGlyph(uint16_t start, uint8_t ledsPerSeg, uint8_t mask, const CRGB& c) {

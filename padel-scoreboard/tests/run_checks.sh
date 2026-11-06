@@ -42,7 +42,7 @@ done
 
 echo
 echo "== 3) compilacion de las herramientas de diagnostico =="
-for t in diag_nano diag_leds; do
+for t in diag_nano diag_leds test_segmentos; do
   d="$TMP/tool_$t"; mkdir -p "$d"
   cp "tools/$t/$t.ino" "$d/sketch.cpp"
   out=$(g++ -std=c++14 -Wall -Wextra -Wno-unused-parameter -I"$STUB" \

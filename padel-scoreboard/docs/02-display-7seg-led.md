@@ -44,6 +44,29 @@ Una cancha de pádel es de 20 × 10 m y nadie mira desde más de 25 m, así que
 **`LAYOUT_DEMO` ya es legible de sobra** y usa 3.2 m de tira en vez de 4.7 m.
 `LAYOUT_FULL` es para que se lea también desde las canchas de al lado o desde el bar.
 
+## 2b. Cuántos LEDs por segmento: la tabla para decidir
+
+A 60 LED/m (paso 16,67 mm), **todos los LEDs tienen la misma separación**, así que
+más LEDs por segmento **no es más brillo por centímetro: es más tamaño**. El
+brillo por área es idéntico en todos los casos. Lo que cambia es a qué distancia
+se lee.
+
+| LEDs/segmento | Segmento | Dígito (alto × ancho) | Legible a |
+|:---:|---|---|---|
+| 2 | 33 mm | 103 × 57 mm | 30-40 m |
+| **3** | **50 mm** | **136 × 74 mm** | **40-55 m** |
+| 4 | 67 mm | 169 × 91 mm | 50-65 m |
+| 6 | 100 mm | 236 × 124 mm | 70-90 m |
+
+Una cancha de pádel mide 20 × 10 m y nadie mira desde más de 25 m, así que
+**con 3 ya sobra**. Y los perfiles del firmware ya están armados así:
+
+| Perfil | puntos / juegos / sets / iconos | LEDs | Dígito de puntos | Sobran de 300 |
+|---|---|:---:|---|:---:|
+| **`LAYOUT_SPARSE`** | **3 / 2 / 2 / 1** | **144** | **136 mm** | **156** |
+| `LAYOUT_DEMO` | 4 / 3 / 2 / 2 | 190 | 169 mm | 110 |
+| `LAYOUT_FULL` | 6 / 4 / 3 / 3 | 278 | 236 mm | 22 |
+
 ## 3. Geometría del dígito
 
 Tira de 60 LED/m ⇒ paso entre LEDs = **16.7 mm**.
@@ -291,10 +314,40 @@ cortos y es fácil de recordar.
 Regla única al soldar: **la SALIDA del pedacito anterior va a la ENTRADA del
 siguiente**, siguiendo la flecha. Tres cables por salto (5V, datos, GND).
 
-Dentro de cada segmento la **dirección no importa** (se enciende completo), pero
-el **orden A→B→C→D→E→F→G sí**. Soldá con 3 hilos (5V, DIN, GND) entre segmento y
-segmento respetando la flecha impresa en la tira: si invertís un tramo, ese tramo
-y todo lo que viene después queda apagado.
+Dentro de cada segmento la **dirección no importa** (se enciende completo).
+Soldá con 3 hilos (5V, DIN, GND) entre segmento y segmento respetando la flecha
+impresa en la tira: si invertís un tramo, ese tramo y todo lo que viene después
+queda apagado.
+
+### El orden de los segmentos es CONFIGURABLE
+
+No hace falta soldar en A→B→C→D→E→F→G. Soldá en el orden que te quede cómodo y
+después se lo decís al firmware en `config.h`:
+
+```c
+// a) VUELTA DE RELOJ (el que recomendamos)
+#define CADENA_SEGMENTOS { SEG_A, SEG_B, SEG_C, SEG_D, SEG_E, SEG_F, SEG_G }
+
+// b) ZIGZAG DE LECTURA: arriba, los dos de arriba, el medio,
+//    los dos de abajo, abajo. Es el que sale natural numerando como se lee.
+#define CADENA_SEGMENTOS { SEG_A, SEG_F, SEG_B, SEG_G, SEG_E, SEG_C, SEG_D }
+```
+
+El zigzag de lectura es este, que es el que suele salir solo al dibujar:
+
+```
+    1 1        posicion 1 -> A (arriba)
+  2     3      posicion 2 -> F (arriba izquierda)
+    4 4        posicion 3 -> B (arriba derecha)
+  5     6      posicion 4 -> G (el del medio)
+    7 7        posicion 5 -> E (abajo izquierda)
+               posicion 6 -> C (abajo derecha)
+               posicion 7 -> D (abajo)
+```
+
+**Si no te acordás cómo quedó**, no importa: `tools/test_segmentos` enciende la
+cadena posición por posición y anotás qué segmento prendió en cada una. Con esa
+tabla completás `CADENA_SEGMENTOS` y los números salen bien dibujados.
 
 **Si quedó cruzado te das cuenta en 30 segundos**: `tools/diag_leds` comando `w`
 enciende el LED 0, el 1, el 2... Si los tres primeros prenden el segmento de
