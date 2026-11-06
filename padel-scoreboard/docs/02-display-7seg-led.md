@@ -263,6 +263,98 @@ bien dibujado) y **lo sacás al sol con el filtro oscuro**. Recién cuando ese
 dígito se lea bien al mediodía, cortás el resto. Si no pasa la prueba, te queda
 4,30 m de tira entera para usar de otra forma.
 
+## 6c. Silicona: cuándo sí y cuándo arruina la tira
+
+### ⚠️ Primero: que sea NEUTRA, no acética
+
+La silicona de pomo común (la de baño y cocina) es **acética**: al curar libera
+**ácido acético**. Ese ácido **corroe el cobre de las pistas y las soldaduras**
+de la tira. No falla el primer día: falla a los meses, con segmentos que se
+apagan de a uno y no hay forma de arreglarlos.
+
+| Cómo reconocerla | |
+|---|---|
+| **Acética** ❌ | huele fuerte a **vinagre** al salir del pomo. Dice "acética" o nada |
+| **Neutra** ✅ | casi no huele. Dice **"neutra"**, **"sin ácido"**, "para espejos", "para acuarios" |
+
+Si la que compraste huele a vinagre, **no la pongas sobre la tira**. Sirve para
+pegar el marco o sellar la caja por fuera, lejos del cobre.
+
+(Si lo que tenés son **barritas de pistola encoladora**, eso es otra cosa:
+termofusible. No tiene ácido, pero tampoco difunde y amarillea con el sol. Para
+fijar cables está bien, como difusor no.)
+
+### Silicona blanca directo sobre los LEDs: no conviene
+
+Por dos razones, y las dos juegan en contra justo en lo que importa:
+
+1. **No difunde si no hay distancia.** La difusión necesita que la luz se mezcle,
+   y eso pasa en el **aire** entre el LED y el difusor. Con una capa de 1 mm
+   pegada al LED la luz no tiene dónde mezclarse: se ve igual el puntito de cada
+   LED, sólo que más apagado.
+2. **La silicona blanca come muchísima luz.** Es opaca, está cargada de pigmento:
+   se pierde fácil **la mitad o más** del brillo. En un cartel que tiene que
+   leerse a pleno sol, eso es exactamente lo que no se puede regalar.
+
+Resultado: menos luz **y** se siguen viendo los puntos. Lo peor de los dos mundos.
+
+### La regla de la difusión
+
+> **La distancia entre el LED y el difusor tiene que ser parecida a la
+> separación entre LEDs.**
+
+A 60 LED/m los LEDs están cada **16,7 mm** ⇒ el difusor va a **15-20 mm**. Esa es
+la razón de que los tabiques sean de 20 mm de alto. No es un capricho: es lo que
+hace que un segmento se vea como una **barra pareja** y no como 3 puntitos.
+
+### Qué usar como difusor, de lo más barato a lo mejor
+
+| Opción | Costo | Resultado |
+|---|---|---|
+| **Papel vegetal / manteca**, 2-3 capas | $0 | ✅ sorprendentemente bueno para el prototipo |
+| **Carpeta plástica blanca translúcida** (PP) | $0 | ✅ muy bueno, rígido, se corta con trincheta |
+| 🏆 **Difusor de panel LED de techo** | ~$ | ✅ **el mejor por precio**: es PMMA opal hecho justo para esto. En casas de electricidad venden el repuesto suelto |
+| Acrílico opal blanco 3 mm | ~9 USD | ✅ la solución prolija definitiva |
+
+El difusor de artefacto LED de techo es el dato que más conviene: está diseñado
+exactamente para difundir LEDs puntuales, es barato y viene en plancha grande.
+
+### Si igual querés silicona: hacé UNA plancha, no 56 moldes
+
+56 moldes es muchísimo trabajo para un resultado peor. Si querés probar, la forma
+razonable es **colar una plancha y cortarla**:
+
+1. Conseguí **silicona translúcida neutra** (no blanca: la blanca come demasiada luz).
+2. Tomá un vidrio o un acrílico plano y **forralo con cinta de embalar
+   transparente**. La silicona **no se pega** al polipropileno de la cinta: ese
+   es todo el secreto del desmolde.
+3. Pegá dos tiras de **1 mm de espesor** (dos capas de cinta de papel, o alambre
+   de 1 mm) como topes, separadas unos 10 cm.
+4. Volcá la silicona en el medio y **nivelá con una espátula o una tarjeta**
+   apoyada en los dos topes. Queda una plancha de 1 mm pareja.
+5. Rociá con **agua con detergente** y alisá con el dedo: no se pega y queda liso.
+6. **24 a 48 h de curado**, a la sombra. La silicona cura de afuera hacia adentro
+   y necesita humedad del aire.
+7. Despegá la plancha de la cinta tirando de una punta y **cortá los 56 pedazos
+   con trincheta** y regla.
+
+**Para desmoldar, lo que funciona**: cinta de embalar, polipropileno, polietileno
+(una bolsa gruesa), o vaselina fina si el molde es de PLA. Lo que **no**
+funciona: PLA desnudo, madera, cartón — se pega y lo arruinás.
+
+Y si imprimís un molde en 3D, dale **2-5° de ángulo de desmolde** en las paredes
+y forralo igual con cinta.
+
+> Aun haciéndolo bien, 1 mm pegado al LED **no reemplaza** la distancia de aire.
+> Sirve como protección o como capa extra sobre un difusor, no en lugar de él.
+
+### Dónde la silicona SÍ sirve en este proyecto
+
+- **Neutra, translúcida**: sellar los pasacables y las juntas de la caja.
+- **Neutra**: fijar los extremos de cada tramo de tira (el adhesivo 3M se despega
+  con el calor del sol).
+- **Pistola encoladora**: sujetar cables por dentro, lejos de las soldaduras.
+
 ## 7. Orden de cableado (hay que respetarlo)
 
 La guirnalda es **una sola tira** cortada y re-soldada en serie. El firmware
