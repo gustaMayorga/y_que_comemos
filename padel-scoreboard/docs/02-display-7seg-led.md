@@ -161,6 +161,85 @@ Esto es lo que diferencia un cartel que se lee de uno que no:
 Extra: `ENABLE_AUTO_BRIGHT` con un LDR en A0 baja el brillo de noche. A pleno sol
 querés 255; de noche 255 encandila y gasta batería al triple.
 
+## 6b. Cómo cortar la tira (WS2812B 5 V 60 LED/m IP20)
+
+### Antes de cortar: encontrar la ENTRADA
+
+Una tira direccionable **funciona en un solo sentido**. En cada punto de corte
+hay 6 pads, tres de cada lado, y están rotulados:
+
+```
+       ... ──►  [ LED ]  GND  DO  +5V  │  +5V  DI  GND  [ LED ]  ──► ...
+                         ▲ salida      │      ▲ entrada
+                                       └── acá se corta
+```
+
+**`DI` = Data In (entrada). `DO` = Data Out (salida).** El dato entra por el
+lado DI y sale por el DO. Si conectás el Arduino del lado DO, **no enciende
+nada** y parece que la tira está fallada.
+
+Mirá el extremo donde vienen los cables de fábrica y fijate qué dice el pad del
+medio. Si dice **DI**, ese es el principio. Si dice DO, el principio es el otro
+extremo. Algunas tiras además traen **flechas impresas**: apuntan hacia el DO.
+
+> Si no estás seguro, no importa: conectá, corré `tools/diag_leds` y escribí `w`.
+> Si no enciende nada, probá el otro extremo. No se rompe nada por probar.
+
+### Los cables de fábrica: verificar, no asumir
+
+Los colores varían según el fabricante. **Antes de conectar, confirmá con el
+multímetro en continuidad** contra los pads de la tira:
+
+| Cable | Debería ir al pad | Verificá |
+|---|---|---|
+| rojo | `+5V` | continuidad con el pad `+5V` |
+| blanco o verde | `DI` | continuidad con el pad del medio |
+| blanco o negro | `GND` | continuidad con el pad `GND` |
+
+Si vienen **dos pares** (uno fino de 3 hilos y uno grueso de 2), el de 3 es
+alimentación + dato y el grueso de 2 es **sólo para inyectar corriente** — ese
+par va a la misma bornera de 5 V, en paralelo. No lleva dato.
+
+### La técnica del corte
+
+1. **Contá LEDs, no midas milímetros.** Para un segmento de 6 LEDs: contás 6 y
+   cortás después del sexto. Medir con regla acumula error.
+2. **Cortá justo por el medio de la línea de cobre**, entre los pads `DO/+5V/GND`
+   y `+5V/DI/GND`. Así cada mitad queda con medio pad para soldar. Si cortás
+   corrido, un lado queda sin dónde soldar y perdés ese LED.
+3. Tijera bien afilada o trincheta con regla. La tira es fina, no hace falta
+   fuerza.
+4. **Estañá los pads primero** (una gota en cada uno), después apoyás el cable ya
+   estañado y calentás. **2 o 3 segundos por pad, no más**: si insistís, el
+   cobre se despega del plástico y ese pad se perdió para siempre.
+5. Cables entre segmentos **cortos, de 3 a 5 cm**, tres por salto, y siempre el
+   mismo código de color (rojo 5V, otro dato, otro GND). Cuando tengas 60 piezas
+   cableadas vas a agradecer no haber improvisado los colores.
+6. Al ser **IP20** no hay silicona que sacar: una complicación menos.
+
+### El plan de corte completo (`LAYOUT_FULL`, 278 LEDs)
+
+| Bloque | Dígitos | LEDs/segmento | Piezas | LEDs | Largo de cada pieza |
+|---|:---:|:---:|:---:|:---:|---|
+| **PUNTOS** | 4 | 6 | 28 | 168 | **100 mm** |
+| **JUEGOS** | 2 | 4 | 14 | 56 | 66,7 mm |
+| **SETS** | 2 | 3 | 14 | 42 | 50 mm |
+| **ICONOS** | — | 3 | 4 | 12 | 50 mm |
+| **TOTAL** | | | **60 piezas** | **278** | **59 cortes** |
+
+Un rollo de 5 m a 60 LED/m son **300 LEDs**: sobran **22**, o sea unos
+**3 segmentos grandes de margen**. Es poco: alcanza para tres o cuatro errores,
+no más.
+
+### ⚠️ No cortes las 60 piezas hoy
+
+**Cortá sólo un dígito**: 7 piezas de 6 LEDs = **42 LEDs ≈ 70 cm de tira**.
+
+Lo armás, lo verificás con `diag_leds` comando `s6` + `d` (tiene que contar 0 a 9
+bien dibujado) y **lo sacás al sol con el filtro oscuro**. Recién cuando ese
+dígito se lea bien al mediodía, cortás el resto. Si no pasa la prueba, te queda
+4,30 m de tira entera para usar de otra forma.
+
 ## 7. Orden de cableado (hay que respetarlo)
 
 La guirnalda es **una sola tira** cortada y re-soldada en serie. El firmware
