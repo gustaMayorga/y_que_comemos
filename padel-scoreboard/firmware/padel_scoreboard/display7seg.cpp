@@ -148,28 +148,38 @@ void Display7Seg::drawTeam(uint8_t team, const MatchState& st) {
 
 // --------------------------- indicadores del centro -------------------------
 
-void Display7Seg::drawCenter(const MatchState& st, const Situation sit[2], bool showServe) {
-  // Flechas de saque: se enciende la del equipo que saca.
-  for (uint8_t t = 0; t < 2; t++) {
-    const bool on = showServe && st.phase != PHASE_MATCH_OVER && st.serving == t;
-    fillGroup(oServeIcon(t), LEDS_PER_ICON, on ? (CRGB)COLOR_SERVE : (CRGB)CRGB::Black);
+// Color del aviso "estas a un punto de...":
+//   cyan = punto de juego | amarillo = punto de set | rojo titilando = de partido
+static CRGB colorAviso(Situation s, bool blinkOn) {
+  switch (s) {
+    case SIT_GAME_POINT:  return COLOR_GAME_POINT;
+    case SIT_SET_POINT:   return COLOR_SET_POINT;
+    case SIT_MATCH_POINT: return blinkOn ? (CRGB)COLOR_MATCH_POINT : (CRGB)CRGB::Black;
+    default:              return CRGB::Black;
   }
+}
 
-  // Aviso "estas a un punto de...": el color dice de que.
-  //   cyan     = punto de juego
-  //   amarillo = punto de set
-  //   rojo titilando = punto de partido
+void Display7Seg::drawCenter(const MatchState& st, const Situation sit[2], bool showServe) {
   const bool blinkOn = ((millis() / ICON_BLINK_MS) & 1) == 0;
+  const bool enJuego = (st.phase != PHASE_MATCH_OVER);
+
+#if ICONOS_POR_EQUIPO >= 2
+  // Dos iconos por equipo: la flecha de saque y el triangulo de aviso,
+  // independientes, se pueden ver los dos a la vez.
   for (uint8_t t = 0; t < 2; t++) {
-    CRGB c = CRGB::Black;
-    switch (sit[t]) {
-      case SIT_GAME_POINT:  c = COLOR_GAME_POINT; break;
-      case SIT_SET_POINT:   c = COLOR_SET_POINT;  break;
-      case SIT_MATCH_POINT: c = blinkOn ? (CRGB)COLOR_MATCH_POINT : (CRGB)CRGB::Black; break;
-      default: break;
-    }
-    fillGroup(oPointIcon(t), LEDS_PER_ICON, c);
+    const bool saca = showServe && enJuego && st.serving == t;
+    fillGroup(oServeIcon(t), LEDS_PER_ICON, saca ? (CRGB)COLOR_SERVE : (CRGB)CRGB::Black);
+    fillGroup(oPointIcon(t), LEDS_PER_ICON, colorAviso(sit[t], blinkOn));
   }
+#else
+  // Un solo triangulo por equipo: manda el aviso de punto, y si no hay ninguno
+  // muestra el saque en verde. El aviso importa mas que quien saca.
+  for (uint8_t t = 0; t < 2; t++) {
+    CRGB c = colorAviso(sit[t], blinkOn);
+    if (sit[t] == SIT_NONE && showServe && enJuego && st.serving == t) c = COLOR_SERVE;
+    fillGroup(oServeIcon(t), LEDS_PER_ICON, c);
+  }
+#endif
 }
 
 // ----------------------------------- render ---------------------------------

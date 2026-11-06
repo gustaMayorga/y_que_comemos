@@ -79,7 +79,12 @@ class Display7Seg {
   uint16_t oSets(uint8_t t)       const { return oGames(t) + DIGIT_SMALL_LEDS; }
   // Centro: saque A, saque B, punto A, punto B
   uint16_t oServeIcon(uint8_t t)  const { return CENTER_OFFSET + (uint16_t)t * LEDS_PER_ICON; }
+#if ICONOS_POR_EQUIPO >= 2
   uint16_t oPointIcon(uint8_t t)  const { return CENTER_OFFSET + (uint16_t)(2 + t) * LEDS_PER_ICON; }
+#else
+  // Con un solo icono por equipo, saque y aviso comparten el mismo triangulo.
+  uint16_t oPointIcon(uint8_t t)  const { return oServeIcon(t); }
+#endif
 
   CRGB       leds_[NUM_LEDS];
   uint8_t    brightness_ = BRIGHTNESS_DAY;

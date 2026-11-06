@@ -56,7 +56,12 @@ for equipo in ("A", "B"):
                    ("juegos", SMALL), ("sets", TINY)):
         bloques.append((f"EQUIPO {equipo}  {nom}", i, i + n * 7 - 1, n))
         i += n * 7
-for nom in ("saque equipo A", "saque equipo B", "aviso punto A", "aviso punto B"):
+m = re.search(r"#define ICONOS_POR_EQUIPO\s+(\d+)", txt)
+POR_EQ = int(m.group(1)) if m else 2
+nombres = (("saque equipo A", "saque equipo B", "aviso punto A", "aviso punto B")
+           if POR_EQ >= 2 else
+           ("icono equipo A (saque+aviso)", "icono equipo B (saque+aviso)"))
+for nom in nombres:
     bloques.append((f"CENTRO    {nom}", i, i + ICON - 1, ICON))
     i += ICON
 TOTAL = i

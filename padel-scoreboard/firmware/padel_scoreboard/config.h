@@ -168,8 +168,18 @@
 
 // Por equipo: [puntos decena][puntos unidad][juegos][sets]
 #define LEDS_PER_TEAM   (2 * DIGIT_BIG_LEDS + DIGIT_SMALL_LEDS + DIGIT_TINY_LEDS)
-// Centro: saque A, saque B, punto A, punto B
-#define LEDS_CENTER     (4 * LEDS_PER_ICON)
+// ---------------------------------------------------------------------------
+//  Cuantos iconos por equipo lleva la columna del centro:
+//    2 = una flecha de SAQUE y un triangulo de AVISO DE PUNTO por equipo
+//        (4 iconos en total). Es lo mas claro: se ve el saque y el aviso al
+//        mismo tiempo.
+//    1 = UN solo triangulo por equipo (2 en total), que hace las dos cosas
+//        segun el color. Si hay punto en juego manda el aviso; si no, muestra
+//        el saque en verde. Util si imprimiste solo 2 triangulos.
+// ---------------------------------------------------------------------------
+#define ICONOS_POR_EQUIPO  2
+
+#define LEDS_CENTER     (2 * ICONOS_POR_EQUIPO * LEDS_PER_ICON)
 #define NUM_LEDS        (2 * LEDS_PER_TEAM + LEDS_CENTER)
 
 #define TEAM_A_OFFSET   0

@@ -102,6 +102,18 @@ con un color.
         ▲  (triángulo aviso)       ● ● ●
 ```
 
+**Cuántos iconos**: el diseño lleva **2 por equipo** (4 en total): una flecha de
+saque y un triángulo de aviso. Se pueden ver los dos a la vez.
+
+Si imprimiste **sólo 2 triángulos**, hay un modo combinado: **un solo triángulo
+por equipo** que hace las dos cosas según el color. Si hay un punto en juego
+manda el aviso; si no, muestra el saque en verde. Se activa con una línea:
+
+```c
+#define ICONOS_POR_EQUIPO  1    // 2 = saque y aviso separados (4 iconos)
+                                // 1 = un solo triangulo por equipo (2 iconos)
+```
+
 **Flechas de saque**: se enciende en **verde** la del equipo que saca. Apuntan
 hacia el equipo, así que de un vistazo se ve de qué lado está el saque.
 
@@ -319,6 +331,34 @@ hace que un segmento se vea como una **barra pareja** y no como 3 puntitos.
 El difusor de artefacto LED de techo es el dato que más conviene: está diseñado
 exactamente para difundir LEDs puntuales, es barato y viene en plancha grande.
 
+### ¿Qué es el PMMA? ¿Se puede imprimir en 3D?
+
+**PMMA = acrílico** (polimetilmetacrilato). El **"opal"** es la versión blanca
+lechosa translúcida: deja pasar la luz pero no se ve la fuente. No se puede
+imprimir: no existe filamento de PMMA opal usable en una impresora casera.
+
+**Pero sí se puede imprimir un difusor que funciona bien.** Es una técnica
+conocida y vos ya tenés la impresora:
+
+| | |
+|---|---|
+| **Material** | PLA **natural** (el transparente/lechoso) o PLA blanco. **PETG natural** si el cartel va a estar al sol todo el día — el PLA se deforma a 55 °C |
+| **Espesor** | **1,0 a 1,5 mm** |
+| **Capas** | 0,2 mm (más capas finas difunden mejor que pocas gruesas) |
+| **Relleno** | **100 %** — tiene que ser macizo, si no se ven las líneas del relleno |
+| **Orientación** | **plano sobre la cama**, nunca de canto |
+| **Cama** | la textura de la cama queda impresa en la cara de abajo y **eso difunde más todavía**: ponela hacia los LEDs |
+
+Transmite alrededor del 40-60 % y difunde muy bien. Imprimís **una plancha por
+dígito** (74 × 136 mm) y la apoyás sobre los tabiques, a 15-20 mm de los LEDs.
+
+Comparado con el acrílico opal comprado: transmite un poco menos, pero sale
+**cero peso** y lo tenés hoy. Vale totalmente la pena probarlo en el primer
+dígito antes de salir a comprar nada.
+
+> Lo que **no** sirve: imprimirlo pegado al LED, ni usar relleno menor al 100 %,
+> ni PLA de color (sólo natural o blanco).
+
 ### Si igual querés silicona: hacé UNA plancha, no 56 moldes
 
 56 moldes es muchísimo trabajo para un resultado peor. Si querés probar, la forma
@@ -446,6 +486,14 @@ enciende el LED 0, el 1, el 2... Si los tres primeros prenden el segmento de
 arriba, A quedó bien. Si prenden otro, o lo desoldás y reordenás, o se cambia el
 mapeo en el firmware. El comando `d` después cuenta 0-9: si los diez números
 salen bien dibujados, el cableado está perfecto.
+
+### Verificar que los tabiques no dejan pasar luz
+
+Con el primer dígito armado y el difusor puesto: `tools/test_segmentos` → `1`
+(prende sólo el segmento de arriba) y mirá los **segmentos vecinos**. Si brillan
+aunque estén apagados, hay fuga de luz entre celdas y un `8` va a parecer un `0`
+borroso a 20 m. Se tapa con una tira de cartón negro o cinta negra mate en la
+junta. Mejor descubrirlo ahora que con los 8 dígitos pegados.
 
 **Verificación**: al arrancar, el firmware corre `animBoot()`, que enciende LED
 por LED en orden a lo largo de toda la guirnalda. Si el barrido va
