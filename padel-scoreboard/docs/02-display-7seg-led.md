@@ -425,6 +425,32 @@ dígito antes de salir a comprar nada.
    no amarillea. El que **sí** amarillea al sol es el **policarbonato** sin
    tratamiento UV — si te ofrecen policarbonato, preguntá si es UV o pedí acrílico.
 
+### ⚠️ Las bolsas blancas duras: sí para probar, no para el cartel final
+
+Son **polietileno de alta densidad (HDPE)**, ni PLA ni PMMA. Ópticamente
+difunden muy bien (es el mismo material de una botella de leche), así que para
+**la prueba del sol de hoy son perfectas y gratis**. Pero no sirven de difusor
+definitivo, por tres razones:
+
+1. **No se les pega nada.** El polietileno tiene la energía superficial más baja
+   de los plásticos comunes: pintura, cola y **acrílico líquido se despegan en
+   escamas**, aunque limpies con alcohol. El alcohol saca la grasa pero no
+   cambia la energía superficial. Por eso no existe el pegamento para polietileno.
+2. **Se deforma con el calor.** Adentro de una caja negra al sol se llega a
+   50-60 °C, y el HDPE estirado **se relaja y se arruga** a esa temperatura.
+3. **No resiste los rayos UV.** No se destiñe —por eso parece que aguanta— pero
+   **se vuelve quebradizo**: a los 6-12 meses de sol se raja al menor toque. Lo
+   que hace al polietileno resistente al UV es el negro de humo, y por eso los
+   caños de exterior son negros.
+
+**Cómo reconocer el plástico que tenés**: tiralo en un balde de agua.
+**Polietileno y polipropileno FLOTAN**; PVC, acrílico y poliestireno **se hunden**.
+Si flota y al doblarlo queda una marca blanca, es polietileno.
+
+Para algo rígido y traslúcido barato que **sí** acepte pegamento: las tapas de
+anillado de **PVC esmerilado** (se pegan y se pintan sin problema) o el
+**PLA impreso**.
+
 **Cómo probar antes de comprar la plancha entera**: prendé el `8` completo con
 `tools/demo_digito` comando `8`, sostené el candidato a **15-20 mm** por encima
 y miralo **al sol**. Tiene que cumplir las dos: que **no se vean los puntos** de
