@@ -21,6 +21,7 @@ difusor, alimentación por power bank o cargador USB.
 | Identificar / probar mi tira LED | [`docs/06` §1](docs/06-identificar-lo-que-tengo.md) | **`tools/diag_leds`** |
 | **Cortar la tira** | [`docs/02` §6b](docs/02-display-7seg-led.md) | — |
 | **Armar y probar UN dígito** | [`docs/02` §5 y §7](docs/02-display-7seg-led.md) | **`tools/test_segmentos`** |
+| Probar colores y efectos en ese dígito | [`docs/02` §6](docs/02-display-7seg-led.md) | **`tools/demo_digito`** |
 | Que se lea a pleno sol | [`docs/02` §6](docs/02-display-7seg-led.md) | — |
 | **Conectar todo (el circuito)** | [`docs/01` §5](docs/01-hardware-bom.md) | — |
 | Conectar el receptor RF | [`docs/01` §5 y §6](docs/01-hardware-bom.md) | — |
@@ -38,6 +39,7 @@ difusor, alimentación por power bank o cargador USB.
 | [`tools/diag_nano`](tools/diag_nano) | ¿funciona la placa? No necesita ningún componente |
 | [`tools/diag_leds`](tools/diag_leds) | ¿qué tira tengo? Cuenta LEDs, orden de color, consumo |
 | [`tools/test_segmentos`](tools/test_segmentos) | **prueba UN dígito segmento por segmento** |
+| [`tools/demo_digito`](tools/demo_digito) | show completo sobre un dígito: 0-9, viborita, cometa, arcoíris y **prueba de colores al sol** |
 | [`firmware/padel_scoreboard`](firmware/padel_scoreboard) | el tanteador completo |
 
 ## Qué muestra
