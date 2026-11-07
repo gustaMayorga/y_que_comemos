@@ -401,6 +401,35 @@ dígito antes de salir a comprar nada.
 > Lo que **no** sirve: imprimirlo pegado al LED, ni usar relleno menor al 100 %,
 > ni PLA de color (sólo natural o blanco).
 
+### Qué pedir en el mostrador
+
+| Dónde | Qué pedir | Precio | Resultado |
+|---|---|---|---|
+| **Librería** | **tapas de anillado de PVC esmerilado** (las traslúcidas tipo "hielo"), 2-3 superpuestas | muy barato | ✅ sorprendentemente bueno, y vienen de a 100 |
+| Librería | papel vegetal / papel calco, 2-3 capas | $0 | ⚠️ sirve, pero se arruga y amarillea |
+| Casa de **electricidad** | **difusor de repuesto de panel LED de techo** | barato | 🏆 **el mejor por precio**: PMMA opal hecho justo para esto |
+| Casa de electricidad | difusor de plafón / de tubo fluorescente viejo | $0 si reciclás | ✅ es el mismo material |
+| **Plásticos / acrílicos** | **acrílico BLANCO TRASLÚCIDO (opal), 2 mm** | ~9 USD el A3 | ✅ la solución definitiva |
+| Casa | botella de leche blanca cortada, tapa de envase de helado | $0 | ✅ para probar, en serio funciona |
+| **Tu impresora** | PLA natural, 1-1,5 mm, 100 % relleno | $0 | ✅ probalo primero, lo tenés hoy |
+
+**Dos cosas que hay que decir bien en el mostrador de acrílicos:**
+
+1. **"Blanco translúcido u opal", NO "blanco opaco".** El blanco opaco no deja
+   pasar luz y no sirve para nada acá. Si te ofrecen opciones de transmisión,
+   pedí la de **mayor transmisión** (50 % antes que 30 %): como el difusor va a
+   15-20 mm de los LEDs, la distancia ya hace casi todo el trabajo de difusión y
+   lo que te conviene es no perder brillo.
+2. **El acrílico (PMMA) ya es resistente a los rayos UV**, no hace falta pedir
+   una versión especial: es el material estándar de la cartelería de exterior y
+   no amarillea. El que **sí** amarillea al sol es el **policarbonato** sin
+   tratamiento UV — si te ofrecen policarbonato, preguntá si es UV o pedí acrílico.
+
+**Cómo probar antes de comprar la plancha entera**: prendé el `8` completo con
+`tools/demo_digito` comando `8`, sostené el candidato a **15-20 mm** por encima
+y miralo **al sol**. Tiene que cumplir las dos: que **no se vean los puntos** de
+cada LED, y que **siga brillando fuerte**. Si cumple una sola, no sirve.
+
 ### Si igual querés silicona: hacé UNA plancha, no 56 moldes
 
 56 moldes es muchísimo trabajo para un resultado peor. Si querés probar, la forma
