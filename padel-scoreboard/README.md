@@ -40,6 +40,7 @@ difusor, alimentación por power bank o cargador USB.
 | [`tools/diag_leds`](tools/diag_leds) | ¿qué tira tengo? Cuenta LEDs, orden de color, consumo |
 | [`tools/test_segmentos`](tools/test_segmentos) | **prueba UN dígito segmento por segmento** |
 | [`tools/demo_digito`](tools/demo_digito) | show completo sobre un dígito: 0-9, viborita, cometa, arcoíris y **prueba de colores al sol** |
+| [`tools/demo_matriz`](tools/demo_matriz) | prueba la idea del **panel matriz** (números, letras, texto corrido) — **corre en Nano** |
 | [`firmware/padel_scoreboard`](firmware/padel_scoreboard) | el tanteador completo |
 
 ## Qué muestra
