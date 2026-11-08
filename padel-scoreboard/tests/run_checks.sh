@@ -60,5 +60,14 @@ for t in diag_nano diag_leds test_segmentos demo_digito demo_matriz; do
 done
 
 echo
+echo "== 4) compilacion del tanteador matriz =="
+d="$TMP/display"; mkdir -p "$d"
+cp display/display/display.ino "$d/sketch.cpp"
+out=$(g++ -std=c++14 -Wall -Wextra -Wno-unused-parameter -I"$STUB" \
+          "$d/sketch.cpp" "$STUB/main.cpp" -o "$d/sk" 2>&1 | head -6)
+if [ -n "$out" ]; then printf "  display      FALLO\n%s\n" "$out"; fail=1
+else                   printf "  display      OK\n"; fi
+
+echo
 [ "$fail" = 0 ] && echo "TODO OK" || echo "HAY FALLOS"
 exit $fail
