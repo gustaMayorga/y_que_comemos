@@ -7,20 +7,42 @@ de verdad.
 Es **autónomo**: no depende de `../firmware`. La versión con WiFi, app, más
 deportes y licencia va en ESP32 y se arma aparte.
 
-## 📐 El panel: 23 columnas × 13 filas = 299 LEDs
+## 📐 El panel: 23 columnas × **12** filas = 276 LEDs
 
 ```
-13 tiras de 23 LEDs, en SERPENTINA
+12 tiras de 23 LEDs, en SERPENTINA
 
   fila  0   →→→→→→→→→→→→→→→→→→→→→→→   23 LEDs
   fila  1   ←←←←←←←←←←←←←←←←←←←←←←←
   fila  2   →→→→→→→→→→→→→→→→→→→→→→→
    ...                                   383 × 217 mm
-  fila 12   →→→→→→→→→→→→→→→→→→→→→→→
+  fila 11   ←←←←←←←←←←←←←←←←←←←←←←←
 ```
 
-De un rollo de 5 m a 60 LED/m (300 LEDs) **sobra 1**. La salida de cada fila va
-a la entrada de la siguiente: como alternan de dirección, el salto es de 2 cm.
+La salida de cada fila va a la entrada de la siguiente: como alternan de
+dirección, el salto es de 2 cm.
+
+**`ALTO` es configurable**: 12 usa 276 LEDs, 13 usa 299 (los 5 m justos). Con 13
+queda una fila de separación entre los puntos y los juegos/sets; con 12 van
+pegadas, y se distinguen igual porque son de distinto color. La fila de
+juegos/sets se apoya sola abajo (`FILA_BAJA = ALTO - 5`).
+
+### Los LEDs no tienen identidad propia
+
+Un WS2812B es intercambiable con cualquier otro: **lo que define la dirección de
+un LED es su posición en la cadena, no de qué parte del rollo salió**. El primero
+después del Arduino es el 0, siempre.
+
+Consecuencia práctica: podés **cortar un pedazo de cualquier lado del rollo y
+usarlo donde quieras**. Si cortaste D1-D4 y te queda cómodo ponerlo como los
+últimos 4 LEDs de la fila 11, hacelo: esos 4 pasan a ser las direcciones 272-275
+y el firmware no se entera.
+
+**La única regla**: el **orden eléctrico** (DIN → DO, pedazo tras pedazo) tiene
+que seguir el **recorrido físico** que espera el firmware — fila 0 de izquierda
+a derecha, fila 1 de derecha a izquierda, y así. Si movés un tramo de lugar,
+re-soldalo para que siga ocupando el mismo lugar del recorrido. Mientras el
+recorrido se respete, de dónde salió cada pedazo da exactamente igual.
 
 ## 🎨 Qué muestra
 
@@ -30,9 +52,8 @@ a la entrada de la siguiente: como alternan de dirección, el salto es de 2 cm.
    f0   |     |     |   ◄    |     |     |
    ..   |  4  |  0  |        |  3  |  0  |   PUNTOS   fuente 5×7
    f6   |     |     |        |     |     |
-   f7                (separación)
-   f8    [3] [1]     |  ▣  |      [2] [0]   JUEGOS y SETS  fuente 3×5
-   f12
+   f7    [3] [1]     |  ▣  |      [2] [0]   JUEGOS y SETS  fuente 3×5
+   f11
 ```
 
 - **Puntos**: `0` `15` `30` `40` `AD` en rojo, dígitos de **117 mm**
@@ -90,8 +111,8 @@ arduino-cli upload  --fqbn arduino:avr:nano -p /dev/ttyUSB0 display/display
 ```
 
 Al arrancar imprime por serie (115200) el tamaño del panel y la **RAM libre**.
-Si queda por debajo de **300 bytes**, bajá el panel a 21 × 11 o 20 × 11 en
-`ANCHO` / `ALTO`.
+Con 23 × 12 deberían quedar unos **470 bytes libres**. Si bajara de 300, achicá
+el panel con `ANCHO` / `ALTO`.
 
 ## 🔧 Antes del primer partido: calibrar la grilla
 
@@ -108,7 +129,7 @@ los calibrás, los copiás.
 
 | Qué | Corriente @5 V |
 |---|---|
-| Tanteo normal (~25 % de píxeles) | ~1,5 A |
+| Tanteo normal (~25 % de píxeles) | ~1,4 A |
 | Festejo a pantalla llena, rojo | ~6 A |
 | Blanco pleno | ~18 A |
 
@@ -121,7 +142,7 @@ club**.
 
 | | 7 segmentos (`../firmware`) | **Matriz (esta)** |
 |---|---|---|
-| LEDs | 148 | 299 |
+| LEDs | 148 | 276 |
 | Alto del dígito | 136 mm | 117 mm |
 | Brillo al sol | 🏆 imbatible | bueno |
 | Letras, nombres, texto corrido | ❌ | ✅ |

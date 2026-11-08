@@ -1,7 +1,7 @@
 // ============================================================================
 //  TANTEADOR DE PADEL - VERSION PANEL MATRIZ  (Arduino Nano)
 //
-//  Panel de 23 x 13 = 299 pixeles WS2812B en serpentina.
+//  Panel de 23 x 12 = 276 pixeles WS2812B en serpentina (ALTO 13 = 299).
 //  Tanteo completo de padel, 2 sensores IR de paleta, control remoto de 3 o 4
 //  botones, y festejos de verdad aprovechando que es una matriz.
 //
@@ -16,13 +16,12 @@
 //     f0   |     |     |   /|   |     |     |
 //     ..   |  4  |  0  |  / |   |  3  |  0  |   <- PUNTOS (fuente 5x7)
 //     f6   |     |     |   \|   |     |     |
-//     f7                 (separacion)
-//     f8   [3] [1]      |  []  |      [2] [0]   <- JUEGOS y SETS (fuente 3x5)
-//     f12
+//     f7   [3] [1]      |  []  |      [2] [0]   <- JUEGOS y SETS (fuente 3x5)
+//     f11
 //
-//     centro: filas 0-6  flecha de SAQUE (apunta al equipo que saca)
-//             filas 8-12 bloque de AVISO: cyan punto de juego,
-//                        amarillo de set, rojo titilando de partido
+//     centro: arriba  flecha de SAQUE (apunta al equipo que saca)
+//             abajo   bloque de AVISO: cyan punto de juego,
+//                     amarillo de set, rojo titilando de partido
 //
 //  ---------------------------------------------------------------------------
 //  CABLEADO
@@ -47,7 +46,7 @@
 
 // ============================ CONFIGURACION =================================
 #define ANCHO            23
-#define ALTO             13
+#define ALTO             12     // 12 = 276 LEDs (12 tiras) | 13 = 299 (5 m justos)
 #define SERPENTINA     true
 #define FILA0_INVERTIDA false
 #define ORIGEN_ARRIBA  true
@@ -100,7 +99,9 @@
 #define COL_B1 13
 #define COL_B2 18
 #define FILA_ALTA 0
-#define FILA_BAJA 8
+// La fila de juegos/sets se apoya abajo: con ALTO 13 queda una fila de
+// separacion, con ALTO 12 van pegadas (se distinguen igual por el color).
+#define FILA_BAJA (ALTO - 5)
 
 CRGB leds[NUM_LEDS];
 
@@ -302,7 +303,7 @@ void flechaSaque(uint8_t t) {               // 3 cols x 5 filas, filas 1..5
 void bloqueAviso(const CRGB& c) {
   const uint8_t m[5] = {2, 7, 7, 7, 2};
   for (uint8_t f = 0; f < 5; f++)
-    for (uint8_t x = 0; x < 3; x++) if (m[f] & (1 << x)) px(COL_CEN + x, 8 + f, c);
+    for (uint8_t x = 0; x < 3; x++) if (m[f] & (1 << x)) px(COL_CEN + x, FILA_BAJA + f, c);
 }
 
 void dibujar() {
