@@ -29,6 +29,7 @@ difusor, alimentación por power bank o cargador USB.
 | **Plano del panel y mapa de LEDs** | **[`montaje/`](montaje/)** | `montaje/mapa_leds.py` |
 | **Armar el panel paso a paso** | **[`montaje/armado-del-panel.md`](montaje/armado-del-panel.md)** | — |
 | Piezas 3D e impresión | [`3d/README.md`](3d/README.md) | `3d/cartel.scad` |
+| **Qué filamento y qué mejorar en la impresora** | **[`3d/materiales-y-impresora.md`](3d/materiales-y-impresora.md)** | — |
 | Entender las reglas y el firmware | [`docs/03`](docs/03-reglas-y-firmware.md) | — |
 | Modos de deporte / licencia / horas de uso | [`docs/09`](docs/09-deportes-uso-y-licencia.md) | — |
 | Problemas al cargar por USB | [`docs/06` §6](docs/06-identificar-lo-que-tengo.md) | — |
