@@ -48,6 +48,7 @@ difusor, alimentación por power bank o cargador USB.
 | [`tools/demo_digito`](tools/demo_digito) | show completo sobre un dígito: 0-9, viborita, cometa, arcoíris y **prueba de colores al sol** |
 | [`tools/demo_matriz`](tools/demo_matriz) | prueba la idea del **panel matriz** (números, letras, texto corrido) — **corre en Nano** |
 | [`tools/test_cartel`](tools/test_cartel) | 🏁 **prueba de aceptación del panel 23×12**: 2 minutos, sin tocar nada |
+| [`tools/diag_rf`](tools/diag_rf) | 📻 **qué recibe el receptor 433**: tramas, ruido y volcado crudo de tiempos |
 | [`firmware/padel_scoreboard`](firmware/padel_scoreboard) | el tanteador completo, versión **7 segmentos** |
 | [`display/`](display/) | el tanteador completo, versión **PANEL MATRIZ** 23×13 |
 

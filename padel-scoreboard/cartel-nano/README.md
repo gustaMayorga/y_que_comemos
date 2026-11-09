@@ -312,6 +312,42 @@ subí `RF_REPES` de 2 a 3.
 > doble de alcance. Con el MX-RM-5V el ruido también genera **muchísimas
 > interrupciones**, que le roban CPU al refresco de los LEDs.
 
+### 🔇 No detecta ninguna trama del llavero
+
+Primero, el diagnóstico dedicado: **`tools/diag_rf`** — sólo el receptor, sin
+LEDs ni nada más.
+
+```bash
+arduino-cli compile --fqbn arduino:avr:nano tools/diag_rf
+arduino-cli upload  --fqbn arduino:avr:nano -p /dev/ttyUSB0 tools/diag_rf
+```
+
+| Comando | |
+|---|---|
+| `t` | muestra cada trama decodificada, su pulso base y cuántas veces se repitió |
+| `c` | **volcado crudo de tiempos** → sirve para descubrir el protocolo del llavero |
+| `e` | estadística: tramas válidas vs descartadas por ruido, cada 5 s |
+
+**Qué tiene que pasar al apretar un botón**: la **misma trama repetida varias
+veces seguidas**, con `<-- VALIDA` a partir de la segunda.
+
+Si no sale nada:
+
+1. **La antena.** 17,3 cm de alambre recto en el pad `ANT`. Sin ella el alcance
+   es de 2 m, y a veces ni eso.
+2. **El pin.** `DATA` tiene que ir a **D2 o D3**: son los únicos del Nano con
+   interrupción.
+3. **La pila del llavero.** Una CR2032 gastada transmite apenas.
+4. **El protocolo.** Corré `c` y apretá el botón: si el volcado muestra tiempos
+   pero el decodificador no arma la trama, tu llavero usa otra codificación.
+   Pasame el volcado y lo adapto.
+5. Poné `RF_DEBUG true` en `cartel-nano.ino` para ver cada trama por el serie.
+
+> ⚠️ **No derivamos el pulso base del sincronismo.** El EV1527 usa una relación
+> de 31:1, pero el PT2262 puede usar 4, 8, 16 o 31. La validación es **por
+> proporción** (un bit es 3:1 o 1:3 entre su parte alta y su baja), que es
+> universal.
+
 ### Otros errores frecuentes
 
 | Error | Qué pasa |

@@ -365,33 +365,36 @@ void festejo(uint8_t t){
 volatile uint32_t rfCodigo = 0;
 volatile bool     rfListo  = false;
 
-// Validacion de tiempos. El pulso corto (alfa) de un EV1527 ronda los 250-500
-// us; el hueco de sincronismo son 31 alfas. Si lo medido cae fuera de estos
-// margenes es ruido y se descarta la trama entera.
-#define RF_ALFA_MIN   120
-#define RF_ALFA_MAX   800
+// Validacion POR PROPORCION, no por tiempos absolutos. No todos los llaveros
+// usan la misma relacion entre el hueco de sincronismo y el pulso base (el
+// EV1527 usa 31, el PT2262 puede usar 4, 8, 16 o 31), asi que derivar el pulso
+// dividiendo por 31 rechazaba tramas buenas. Lo que SI es universal:
+//   - un bit es 3:1 (un "1") o 1:3 (un "0") entre su parte alta y su parte baja
+//   - todos los bits de una trama duran mas o menos lo mismo
+#define RF_DEBUG false        // true = imprime cada trama decodificada
 
 void rfISR(){
   static uint32_t ult = 0, dato = 0;
-  static uint16_t alto = 0, alfa = 0;
+  static uint16_t alto = 0, base = 0;
   static uint8_t  bits = 0, sinc = 0;
   const uint32_t n = micros();
   const uint16_t d = (uint16_t)(n - ult);
   ult = n;
 
   if(digitalRead(PIN_RF_DATA)){            // flanco de subida: termino un BAJO
-    if(d > 3000 && d < 20000){             // posible hueco de sincronismo
-      const uint16_t a = d / 31;
-      if(a < RF_ALFA_MIN || a > RF_ALFA_MAX){ sinc = 0; return; }
+    if(d > 2500 && d < 40000){             // hueco de sincronismo
       if(sinc && bits == 24 && !rfListo){ rfCodigo = dato; rfListo = true; }
-      alfa = a; bits = 0; dato = 0; sinc = 1;
+      bits = 0; dato = 0; base = 0; sinc = 1;
       return;
     }
     if(!sinc) return;
-    // cada bit son 4 alfas repartidos entre alto y bajo. Si no da, es ruido.
+    const bool uno  = alto > (uint16_t)(d * 2);
+    const bool cero = d > (uint16_t)(alto * 2);
+    if(!uno && !cero){ sinc = 0; return; }        // relacion ~1:1 -> ruido
     const uint16_t tot = alto + d;
-    if(tot < (uint16_t)(alfa*2) || tot > (uint16_t)(alfa*7)){ sinc = 0; return; }
-    dato = (dato << 1) | (alto > d ? 1UL : 0UL);
+    if(!base) base = tot;
+    else if(tot < (uint16_t)(base/2) || tot > (uint16_t)(base*2)){ sinc = 0; return; }
+    dato = (dato << 1) | (uno ? 1UL : 0UL);
     if(++bits > 24) sinc = 0;
   } else {                                 // flanco de bajada: termino un ALTO
     alto = d;
@@ -408,6 +411,7 @@ bool rfTrama(uint32_t* out){
   if(!rfListo) return false;
   noInterrupts(); const uint32_t c = rfCodigo; rfListo = false; interrupts();
   if(c == 0 || c == 0xFFFFFFUL) return false;
+  if(RF_DEBUG){ Serial.print(F("[rf] trama ")); Serial.println(c); }
 
   static uint32_t cand = 0, tCand = 0, ultAcep = 0, tAcep = 0;
   static uint8_t  rep = 0;
