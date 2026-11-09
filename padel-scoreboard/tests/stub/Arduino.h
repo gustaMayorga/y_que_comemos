@@ -32,6 +32,8 @@ inline void delay(unsigned long){}
 inline void delayMicroseconds(unsigned int){}
 inline unsigned long millis(){return 0;}
 inline unsigned long pulseIn(uint8_t,uint8_t,unsigned long){return 0;}
+typedef char __FlashStringHelper;
+inline char* strncpy_P(char*d,const char*s,unsigned n){return strncpy(d,s,n);}
 inline void tone(uint8_t,unsigned int,unsigned long){}
 struct SerialStub {
   void begin(long){}

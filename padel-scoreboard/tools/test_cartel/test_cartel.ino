@@ -99,12 +99,23 @@ CRGB rueda(uint8_t p){
   if(p < 170){ p -= 85;  return CRGB(0, 255-p*3, p*3); }
   p -= 170;   return CRGB(p*3, 0, 255-p*3);
 }
-void corre(const char* t, const CRGB& c, uint8_t vueltas){
+void corre(const __FlashStringHelper* f, const CRGB& c, uint8_t vueltas){
+  char t[12];
+  strncpy_P(t, (const char*)f, sizeof(t)-1); t[sizeof(t)-1] = 0;
   const int16_t w = (int16_t)strlen(t) * 6;
   for(uint8_t v = 0; v < vueltas; v++)
     for(int16_t o = ANCHO; o > -w; o--){
       limpiar(); txt57(t, o, (ALTO-7)/2, c); mostrar(); delay(45);
     }
+}
+
+int ramLibre(){
+#if defined(__AVR__)
+  extern int __heap_start, *__brkval;
+  int v; return (int)&v - (__brkval == 0 ? (int)&__heap_start : (int)__brkval);
+#else
+  return -1;
+#endif
 }
 void fase(uint8_t n, const char* nom, const char* mirar){
   Serial.print(F("\n[")); Serial.print(n); Serial.print(F("/6] "));
@@ -136,22 +147,42 @@ void f3_colores(){
   fase(3, "COLORES", "cada pantalla pareja y sin LEDs apagados ni de otro color");
   const CRGB c[7] = {CRGB(255,0,0), CRGB(0,255,0), CRGB(0,80,255), CRGB(255,180,0),
                      CRGB(0,255,220), CRGB(255,0,230), CRGB(255,255,255)};
-  const char* n[7] = {"rojo","verde","azul","amarillo","cyan","magenta","BLANCO (consumo max)"};
   for(uint8_t i = 0; i < 7; i++){
     fill_solid(leds, NUM_LEDS, c[i]); mostrar();
-    Serial.print(F("      ")); Serial.println(n[i]);
+    Serial.print(F("      "));
+    switch(i){
+      case 0: Serial.println(F("rojo")); break;
+      case 1: Serial.println(F("verde")); break;
+      case 2: Serial.println(F("azul")); break;
+      case 3: Serial.println(F("amarillo")); break;
+      case 4: Serial.println(F("cyan")); break;
+      case 5: Serial.println(F("magenta")); break;
+      default:Serial.println(F("BLANCO (consumo maximo)")); break;
+    }
     delay(2000);
   }
   limpiar(); mostrar();
 }
 /* ------------------------- 4. PARTIDO -------------------------- */
 uint8_t pA, pB, jA, jB, sA, sB, saque;
-const char* ETIQ[5] = {"0","15","30","40","AD"};
+
+// Escribe la etiqueta del punto sin usar literales: en AVR cada cadena
+// constante se copia a RAM, y acá no sobra ni un byte.
+void etiq(uint8_t p, char* o){
+  switch(p){
+    case 0: o[0]='0'; o[1]=0; break;
+    case 1: o[0]='1'; o[1]='5'; o[2]=0; break;
+    case 2: o[0]='3'; o[1]='0'; o[2]=0; break;
+    case 3: o[0]='4'; o[1]='0'; o[2]=0; break;
+    default:o[0]='A'; o[1]='d'; o[2]=0; break;
+  }
+}
 void tablero(){
   limpiar();
-  const char* a = ETIQ[pA]; const char* b = ETIQ[pB];
-  txt57(a, strlen(a) == 1 ? 6 : 0, 0, CRGB(255,0,0));
-  txt57(b, strlen(b) == 1 ? 17 : 12, 0, CRGB(255,0,0));
+  char a[3], b[3];
+  etiq(pA, a); etiq(pB, b);
+  txt57(a, a[1] ? 0 : 6,  0, CRGB(255,0,0));
+  txt57(b, b[1] ? 12 : 17, 0, CRGB(255,0,0));
   dig35(jA, 0, 7, CRGB(255,60,0));   dig35(sA, 5, 7, CRGB(255,180,0));
   dig35(jB, 14, 7, CRGB(255,60,0));  dig35(sB, 19, 7, CRGB(255,180,0));
   const uint8_t iz[5] = {4,6,7,6,4}, de[5] = {1,3,7,3,1};
@@ -187,7 +218,7 @@ void f4_partido(){
   for(uint8_t k = 0; k < 6; k++){                    // festejo
     fill_solid(leds, NUM_LEDS, k%2 ? CRGB(0,255,0) : CRGB::Black); mostrar(); delay(120);
   }
-  corre("GANA A", CRGB(0,255,0), 1);
+  corre(F("GANA A"), CRGB(0,255,0), 1);
 }
 /* ------------------------- 5. LUCES ---------------------------- */
 void luzLaser(uint16_t ms){
@@ -216,18 +247,17 @@ void luzAnillos(uint16_t ms){
     mostrar(); delay(28);
   }
 }
-void luzFuego(uint16_t ms){
-  static uint8_t cal[NUM_LEDS];
-  const uint32_t t0 = millis();
+// Olas de plasma. Es SIN ESTADO a proposito: el fuego necesitaba un mapa de
+// calor de NUM_LEDS bytes (276 de los 2048 del Nano) y no vale la pena en un
+// test. El fuego con estado va en el firmware del ESP32.
+void luzPlasma(uint16_t ms){
+  const uint32_t t0 = millis(); uint8_t t = 0;
   while(millis() - t0 < ms){
-    for(uint8_t x = 0; x < ANCHO; x++) cal[XY(x,ALTO-1)] = random8(150,255);
-    for(uint8_t y = 0; y < ALTO-1; y++) for(uint8_t x = 0; x < ANCHO; x++){
-      const uint16_t s = (uint16_t)cal[XY(x,y+1)]*2 + cal[XY(max(0,x-1),y+1)]
-                       + cal[XY(min(ANCHO-1,x+1),y+1)];
-      cal[XY(x,y)] = s / 4.15;
+    for(uint8_t y = 0; y < ALTO; y++) for(uint8_t x = 0; x < ANCHO; x++){
+      const uint8_t v = (uint8_t)((sin8(x*26 + t) >> 1) + (cos8(y*30 - t) >> 1));
+      leds[XY(x,y)] = HeatColor(v);
     }
-    for(uint16_t i = 0; i < NUM_LEDS; i++) leds[i] = HeatColor(cal[i]);
-    mostrar(); delay(28);
+    t += 5; mostrar(); delay(26);
   }
 }
 void luzEstrobo(uint16_t ms){
@@ -259,7 +289,7 @@ void f5_luces(){
   fase(5, "SHOW DE LUCES", "fluido, sin parpadeos raros y sin LEDs que queden prendidos");
   Serial.println(F("      laser"));   luzLaser(7000);
   Serial.println(F("      anillos")); luzAnillos(7000);
-  Serial.println(F("      fuego"));   luzFuego(7000);
+  Serial.println(F("      plasma"));  luzPlasma(7000);
   Serial.println(F("      cometa"));  luzCometa(6000);
   Serial.println(F("      arcoiris"));luzArcoiris(7000);
   Serial.println(F("      estrobo")); luzEstrobo(4000);
@@ -268,7 +298,7 @@ void f5_luces(){
 /* ------------------------- 6. VEREDICTO ------------------------ */
 void f6_fin(){
   fase(6, "FIN", "si las 5 fases se vieron bien, el cartel esta listo");
-  corre("OK", CRGB(0,255,0), 1);
+  corre(F("OK"), CRGB(0,255,0), 1);
   limpiar(); mostrar(); delay(800);
 }
 
@@ -284,6 +314,8 @@ void setup(){
   Serial.print(F("  panel "));   Serial.print(ANCHO); Serial.print('x');
   Serial.print(ALTO); Serial.print(F(" = ")); Serial.print(NUM_LEDS);
   Serial.println(F(" LEDs"));
+  Serial.print(F("  RAM libre: ")); Serial.print(ramLibre());
+  Serial.println(F(" bytes (si baja de 300, achicar el panel)"));
   Serial.println(F("  duracion ~2 min, despues vuelve a empezar"));
   Serial.println(F("================================================"));
 }
