@@ -31,6 +31,14 @@ inline int  analogRead(uint8_t){return 0;}
 inline void delay(unsigned long){}
 inline void delayMicroseconds(unsigned int){}
 inline unsigned long millis(){return 0;}
+inline unsigned long micros(){return 0;}
+#define CHANGE 1
+#define RISING 2
+#define FALLING 3
+inline int  digitalPinToInterrupt(int p){return p;}
+inline void attachInterrupt(int,void(*)(void),int){}
+inline void noInterrupts(){}
+inline void interrupts(){}
 inline unsigned long pulseIn(uint8_t,uint8_t,unsigned long){return 0;}
 typedef char __FlashStringHelper;
 inline void* memcpy_P(void*d,const void*s,unsigned n){return memcpy(d,s,n);}

@@ -26,22 +26,26 @@
 
 ```
                        ┌───────────────┐
-      sensor A  TRIG ──┤ D2        D13 ├── (libre, LED de placa)
-      sensor A  ECHO ──┤ D3        D12 ├── botón DEPORTE  → a GND
-      sensor B  TRIG ──┤ D4        D11 ├── buzzer (vía BC337)
-      sensor B  ECHO ──┤ D5        D10 ├── RF canal 4
-   DATO de la tira  ◄──┤ D6         D9 ├── RF canal 3
-            RF ch1  ──►┤ D7         D8 ├── RF canal 2
-                       │               │
-                       │  A0  A1       │
-                       └───┬───┬───────┘
-                           │   └── botón RESET → a GND
-                           └────── LDR (opcional)
+        RF 433 DATA  ──►┤ D2        D13 ├── LED de la placa (bips)
+   HC-SR04 ECHO A  ──►┤ D3        D12 ├── botón DEPORTE → a GND
+                      ┤ D4        D11 ├── buzzer (vía BC337)
+   HC-SR04 ECHO B  ──►┤ D5        D10 ├── libre
+   DATO de la tira ◄──┤ D6         D9 ├── libre
+                      ┤ D7         D8 ├── libre
+                      │               │
+                      │ A0 A1 A2 A3   │
+                      └──┬──┬──┬──┬───┘
+                         │  │  │  └── sensor B
+                         │  │  └───── sensor A
+                         │  └──────── botón RESET → a GND
+                         └─────────── LDR (opcional, ver abajo)
 ```
 
-> Con **sensores IR de obstáculo** (FC-51) se usa **una sola salida digital**:
-> conectala a **D2** (equipo A) y **D3** (equipo B), y dejá D4/D5 libres.
-> Con **HC-SR04 ultrasónicos** se usan los cuatro: TRIG+ECHO por sensor.
+> **D7 a D10 quedaron libres** al pasar al receptor crudo: antes eran los 4
+> canales del PT2272.
+>
+> **El LDR es opcional.** Es un fotorresistor que baja el brillo solo de noche.
+> Si no lo ponés no pasa nada: el brillo se cicla a mano con el botón RESET.
 
 ## La tira LED
 
@@ -67,19 +71,49 @@
    fila 11  ←←←←←←←←←←←←←←←←←←←←←←←
 ```
 
-## Receptor RF 433 MHz (PT2272-**M4**, momentáneo)
+## Receptor RF 433 MHz — **MX-RM-5V / XY-MK-5V**
+
+⚠️ **Este receptor NO decodifica nada.** Entrega el flujo de bits en bruto por
+un solo pin; el código del llavero lo decodifica el firmware. Por eso **no hay
+4 canales**: hay **un pin de datos** y los botones se **graban**.
 
 ```
-   VCC ──► 5 V de la bornera        D0 ──► D7    botón 1  (+1 equipo A)
-   GND ──► GND                      D1 ──► D8    botón 2  (+1 equipo B)
-   VT  ──► sin conectar             D2 ──► D9    botón 3  (deshacer)
-   ANT ──► 17 cm de alambre         D3 ──► D10   botón 4  (brillo / reset)
-           recto y vertical
+   ┌─────────────────────────────┐
+   │  MX-RM-5V   (4 patas)       │
+   │                             │
+   │  VCC  ──────────► 5 V       │
+   │  DATA ──────────► D2        │  ← tiene que ser D2 o D3: son los únicos
+   │  DATA ──  (repetido, dejar  │     pines de interrupción del Nano
+   │           uno sin conectar) │
+   │  GND  ──────────► GND       │
+   │                             │
+   │  ANT  ──► 17,3 cm de alambre recto y vertical
+   └─────────────────────────────┘
 ```
 
-⚠️ Tiene que ser **M4 (momentáneo)**, no L4: el L4 queda enclavado y el
-firmware lo lee como una pulsación eterna.
-⚠️ Los pines vienen rotulados **D0 D1 D2 D3**, no CH1..CH4. `D0` es el canal 1.
+**Las 4 patas**: mirando el lado de los componentes, suelen venir
+`VCC · DATA · DATA · GND`. Los dos DATA están unidos internamente — se usa uno
+solo. Si el tuyo trae 8 patas, el orden es `GND · DATA · DATA · VCC` de un lado
+y la antena del otro.
+
+### 📡 La antena es obligatoria
+
+**17,3 cm de alambre recto** (un cuarto de onda a 433 MHz), soldado al pad `ANT`
+y lo más vertical posible. Sin antena el alcance es de **2 metros**; con
+antena, **30 a 50 m**.
+
+### 💡 Upgrade recomendado: RXB6
+
+El MX-RM-5V es **super-regenerativo**: barato pero ruidoso y de poco alcance.
+El **RXB6** (superheterodino, ~3 USD) es compatible pin a pin y da el doble de
+alcance con mucho menos ruido. Si el alcance te queda corto, es el cambio.
+
+### ⚠️ FastLED y las interrupciones
+
+FastLED apaga las interrupciones durante cada refresco (~8 ms con 276 LEDs), y
+en ese rato el receptor no puede decodificar. No es grave: **el llavero repite
+la trama varias veces por pulsación**, así que alguna entra. Pero si alguna vez
+una pulsación no toma, es por esto — se aprieta de nuevo y listo.
 
 ## Sensores de paleta
 
@@ -174,6 +208,8 @@ Alcance 2-400 cm e **inmune al sol**. Es el único que funciona de verdad a
    botón RESET   ── A1  ──┤             5 V ──► buzzer ──► colector BC337
                           │             base ──[1 kΩ]── D11
                          GND            emisor ──► GND
+
+   D13 = LED de la propia placa, acompaña los bips. No hay que cablear nada.
 ```
 
 Los dos botones usan `INPUT_PULLUP`: **no llevan resistencia**, van directo a GND.

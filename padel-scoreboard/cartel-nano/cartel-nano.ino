@@ -7,6 +7,7 @@
 // ============================================================================
 
 #include <FastLED.h>
+#include <EEPROM.h>
 #if defined(__AVR__)
   #include <avr/pgmspace.h>
 #endif
@@ -31,14 +32,18 @@
 #define SENS_ACTIVO_BAJO true    // solo con FC-51
 #define TCRT_UMBRAL      90      // cuanto tiene que cambiar la lectura (0-1023)
 #define PROX_CM          20      // solo con HC-SR04
-#define PIN_RF1           7      // +1 punto A
-#define PIN_RF2           8      // +1 punto B
-#define PIN_RF3           9      // deshacer / brillo
-#define PIN_RF4          10      // brillo / reset   (solo con 4 botones)
-#define BOTONES_CONTROL   3      // 3 o 4
+// --- CONTROL REMOTO ---------------------------------------------------------
+//  Receptor CRUDO de 433 MHz (MX-RM-5V / XY-MK-5V / RXB6): entrega el flujo de
+//  bits en bruto por UN pin, y el codigo del llavero se decodifica por software.
+//  Los botones se APRENDEN (ver GRABAR en el README).
+#define PIN_RF_DATA       2      // en el Nano tiene que ser D2 o D3 (interrupcion)
+#define RF_CONTROLES      2      // cuantos llaveros se pueden grabar
+#define RF_BOTONES        3      // botones por llavero (siempre 3)
+#define GRABAR_HOLD_MS 15000     // mantener el boton DEPORTE para grabar
 #define PIN_BUZZER       11
-#define PIN_DEPORTE      12      // boton: corto = cambia deporte
-#define PIN_RESET        A1      // boton: mantener 2 s = reset
+#define PIN_DEPORTE      12      // corto = deporte | 15 s = grabar controles
+#define PIN_RESET        A1      // corto = brillo  | 2 s  = reset del partido
+#define PIN_LED_PLACA    13      // el LED de la propia placa, acompana los bips
 
 #define MILIAMPERES    2600
 #define BRILLO_DIA      200
@@ -306,7 +311,12 @@ void dibujar(){
 }
 
 /* ========================= SONIDO Y FESTEJOS ========================= */
-void bip(uint16_t f, uint16_t ms){ tone(PIN_BUZZER,f,ms); delay(ms); }
+// Los bips prenden tambien el LED de la placa, para poder grabar los controles
+// mirando el Arduino aunque el panel este tapado.
+void bip(uint16_t f, uint16_t ms){
+  digitalWrite(PIN_LED_PLACA,HIGH); tone(PIN_BUZZER,f,ms); delay(ms);
+  digitalWrite(PIN_LED_PLACA,LOW);
+}
 void flash(uint8_t t, const CRGB& c){
   const int16_t x0 = t?ANCHO-11:0;
   for(int16_t y=0;y<ALTO;y++) for(int16_t x=x0;x<x0+11;x++) pix(x,y,c);
@@ -331,6 +341,86 @@ void festejo(uint8_t t){
   ola(2);
   corre(t?F("GANA B"):F("GANA A"), C_GANA, 2);
   dibujar();
+}
+
+/* ================= CONTROL REMOTO POR RADIO (tipo 2) =================
+   Decodificador EV1527 / PT2262 minimo, hecho a mano en vez de usar RCSwitch:
+   la libreria reserva un buffer de ~135 bytes y en un Nano con 276 LEDs eso es
+   mucho. Este usa unos 30.
+
+   Trama EV1527: un pulso corto en alto, 31 cortos en bajo (sincronismo), y
+   despues 24 bits. Cada bit es alto+bajo: si el alto dura mas que el bajo es
+   un 1, si no es un 0. El llavero repite la trama varias veces por pulsacion.
+   ==================================================================== */
+volatile uint32_t rfCodigo = 0;
+volatile bool     rfListo  = false;
+
+void rfISR(){
+  static uint32_t ult = 0, dato = 0;
+  static uint16_t alto = 0;
+  static uint8_t  bits = 0, sinc = 0;
+  const uint32_t n = micros();
+  const uint16_t d = (uint16_t)(n - ult);
+  ult = n;
+
+  if(digitalRead(PIN_RF_DATA)){            // flanco de subida: termino un BAJO
+    if(d > 3000 && d < 16000){             // hueco de sincronismo
+      if(bits == 24 && !rfListo){ rfCodigo = dato; rfListo = true; }
+      bits = 0; dato = 0; sinc = 1;
+      return;
+    }
+    if(!sinc) return;
+    dato = (dato << 1) | (alto > d ? 1UL : 0UL);
+    if(bits < 24) bits++; else { sinc = 0; }
+  } else {                                 // flanco de bajada: termino un ALTO
+    alto = d;
+  }
+}
+
+#define EE_MAGIC_DIR  0
+#define EE_CODIGOS    4
+#define EE_MAGIC      0x5247u   // "RG"
+#define EE_PROX       (EE_CODIGOS + RF_CONTROLES*RF_BOTONES*4)
+#define N_CODIGOS     (RF_CONTROLES * RF_BOTONES)
+
+uint32_t rfCod[N_CODIGOS];
+uint8_t  rfProxCtrl = 0;        // que control se graba la proxima vez
+
+void rfCargar(){
+  uint16_t m; EEPROM.get(EE_MAGIC_DIR, m);
+  if(m != EE_MAGIC){ memset(rfCod,0,sizeof(rfCod)); rfProxCtrl=0; return; }
+  for(uint8_t i=0;i<N_CODIGOS;i++) EEPROM.get(EE_CODIGOS + i*4, rfCod[i]);
+  rfProxCtrl = EEPROM.read(EE_PROX) % RF_CONTROLES;
+}
+void rfGuardar(){
+  EEPROM.put(EE_MAGIC_DIR, (uint16_t)EE_MAGIC);
+  for(uint8_t i=0;i<N_CODIGOS;i++) EEPROM.put(EE_CODIGOS + i*4, rfCod[i]);
+  EEPROM.update(EE_PROX, rfProxCtrl);
+}
+// Espera un codigo nuevo. Devuelve 0 si se agoto el tiempo.
+uint32_t rfEsperar(uint16_t segundos){
+  const uint32_t t0 = millis();
+  noInterrupts(); rfListo = false; interrupts();
+  while(millis() - t0 < (uint32_t)segundos*1000){
+    if(rfListo){
+      noInterrupts(); const uint32_t c = rfCodigo; rfListo = false; interrupts();
+      if(c) return c;
+    }
+  }
+  return 0;
+}
+// Devuelve 1, 2 o 3 segun la FUNCION del boton, de cualquiera de los llaveros.
+//   1 = punto equipo A   2 = punto equipo B   3 = deshacer
+uint8_t rfLeer(){
+  if(!rfListo) return 0;
+  noInterrupts(); const uint32_t c = rfCodigo; rfListo = false; interrupts();
+  static uint32_t ultC=0, ultT=0;
+  if(c == ultC && millis() - ultT < 400) return 0;   // el llavero repite la trama
+  ultC = c; ultT = millis();
+  for(uint8_t i=0;i<N_CODIGOS;i++)
+    if(rfCod[i] && rfCod[i] == c) return (uint8_t)(i % RF_BOTONES) + 1;
+  Serial.print(F("[rf] codigo sin grabar: ")); Serial.println(c);
+  return 0;
 }
 
 /* ========================= ENTRADAS ========================= */
@@ -412,10 +502,7 @@ struct Boton {
   uint32_t desde() const { return est?(millis()-td):0; }
 };
 Sensor sA, sB;
-Boton rf1, rf2, rf3, bDep, bRst;
-#if BOTONES_CONTROL >= 4
-Boton rf4;
-#endif
+Boton bDep, bRst;
 const uint8_t BRILLOS[3]={BRILLO_DIA,120,45};
 uint8_t iBri=0; bool redib=true, barra=false;
 
@@ -454,6 +541,56 @@ void onPunto(uint8_t t){
   redib=true;
 }
 
+/* ================= GRABAR CONTROLES =================
+   Se entra manteniendo el boton DEPORTE 15 segundos.
+   Ocupa la direccion del control 1, despues la del 2, y vuelve a empezar.
+     boton 1 -> punto equipo A    bip bip
+     boton 2 -> punto equipo B    bip bip
+     boton 3 -> deshacer          biiiiiip y sale
+   ==================================================== */
+void grabarControles(){
+  const uint8_t ctrl = rfProxCtrl;
+  Serial.print(F("[grabar] control ")); Serial.println(ctrl+1);
+  bip(900,120); bip(900,120); bip(1400,250);
+
+  for(uint8_t b=0; b<RF_BOTONES; b++){
+    // en pantalla: C1 / C2 arriba y el numero de boton abajo
+    limpiar();
+    chr57('C', 2, 0, C_SETS);
+    chr57((char)('1'+ctrl), 8, 0, C_SETS);
+    chr57((char)('1'+b), ANCHO-8, 0, C_PUNTOS);
+    for(uint8_t k=0;k<=b;k++) for(uint8_t f=0;f<2;f++) for(uint8_t c=0;c<2;c++)
+      pix(2+k*3+c, ALTO-3+f, C_GANA);
+    mostrar();
+    Serial.print(F("  apreta el boton ")); Serial.println(b+1);
+
+    uint32_t c = 0;
+    const uint32_t lim = millis() + 30000UL;
+    while(millis() < lim){
+      c = rfEsperar(1);
+      if(!c) continue;
+      bool rep=false;                       // no aceptar dos veces el mismo
+      for(uint8_t i=0;i<b;i++) if(rfCod[ctrl*RF_BOTONES+i]==c) rep=true;
+      if(rep){ c=0; continue; }
+      break;
+    }
+    if(!c){
+      Serial.println(F("  tiempo agotado, se cancela"));
+      bip(300,400); limpiar(); mostrar(); return;
+    }
+    rfCod[ctrl*RF_BOTONES + b] = c;
+    Serial.print(F("  guardado: ")); Serial.println(c);
+
+    if(b < RF_BOTONES-1){ bip(1900,90); delay(70); bip(1900,90); }   // bip bip
+    else                  bip(2200,900);                             // biiiiiip
+  }
+  rfProxCtrl = (uint8_t)((ctrl+1) % RF_CONTROLES);
+  rfGuardar();
+  Serial.println(F("[grabar] listo"));
+  limpiar(); mostrar(); delay(300);
+  redib = true;
+}
+
 void setup(){
   Serial.begin(BAUD);
   pinMode(PIN_BUZZER,OUTPUT);
@@ -461,14 +598,12 @@ void setup(){
   FastLED.setMaxPowerInVoltsAndMilliamps(5,MILIAMPERES);
   FastLED.setBrightness(BRILLOS[iBri]);
   limpiar(); mostrar();
+  pinMode(PIN_LED_PLACA,OUTPUT);
   sA.begin(PIN_SENS_A, PIN_ECHO_A); sB.begin(PIN_SENS_B, PIN_ECHO_B);
-  rf1.begin(PIN_RF1,true,BTN_LARGO_MS);
-  rf2.begin(PIN_RF2,true,BTN_LARGO_MS);
-  rf3.begin(PIN_RF3,true,BTN_LARGO_MS);
-#if BOTONES_CONTROL >= 4
-  rf4.begin(PIN_RF4,true,BTN_LARGO_MS);
-#endif
-  bDep.begin(PIN_DEPORTE,false,2000);
+  pinMode(PIN_RF_DATA, INPUT);
+  attachInterrupt(digitalPinToInterrupt(PIN_RF_DATA), rfISR, CHANGE);
+  rfCargar();
+  bDep.begin(PIN_DEPORTE,false,GRABAR_HOLD_MS);
   bRst.begin(PIN_RESET,false,RESET_LARGO_MS);
   cargarReglas(); resetPartido();
   delay(250);
@@ -476,6 +611,10 @@ void setup(){
   Serial.print(F("  panel ")); Serial.print(ANCHO); Serial.print('x'); Serial.print(ALTO);
   Serial.print(F(" = ")); Serial.print(NUM_LEDS); Serial.println(F(" LEDs"));
   Serial.print(F("  RAM libre: ")); Serial.println(ramLibre());
+  { uint8_t n=0; for(uint8_t i=0;i<N_CODIGOS;i++) if(rfCod[i]) n++;
+    Serial.print(F("  controles grabados: ")); Serial.print(n/RF_BOTONES);
+    Serial.print(F(" de ")); Serial.println(RF_CONTROLES);
+    if(!n) Serial.println(F("  -> manten el boton DEPORTE 15 s para grabar")); }
 #if SENSOR_TIPO == 1
   Serial.print(F("  sensores TCRT5000 en reposo: A="));
   Serial.print(sA.crudo()); Serial.print(F("  B=")); Serial.println(sB.crudo());
@@ -486,30 +625,34 @@ void setup(){
 }
 
 void loop(){
-  rf1.poll(); rf2.poll(); rf3.poll(); bDep.poll(); bRst.poll();
-#if BOTONES_CONTROL >= 4
-  rf4.poll();
-#endif
+  bDep.poll(); bRst.poll();
+
+  // --- RESET: barra roja mientras se mantiene ---
   if(bRst.sost()){
     const uint16_t n=(uint16_t)((bRst.desde()*NUM_LEDS)/RESET_LARGO_MS);
     limpiar(); for(uint16_t i=0;i<n&&i<NUM_LEDS;i++) leds[i]=CRGB(255,0,0);
     mostrar(); barra=true; return;
   }
+  // --- DEPORTE mantenido: barra ambar hasta los 15 s = grabar controles ---
+  if(bDep.sost() && bDep.desde() > 900){
+    const uint16_t n=(uint16_t)((bDep.desde()*NUM_LEDS)/GRABAR_HOLD_MS);
+    limpiar(); for(uint16_t i=0;i<n&&i<NUM_LEDS;i++) leds[i]=CRGB(255,120,0);
+    mostrar(); barra=true; return;
+  }
   if(barra){ barra=false; redib=true; }
-  if(bRst.largo()){ resetPartido(); bip(1200,90); bip(1700,120); redib=true; }
 
-  if(rf1.corto()) onPunto(0);
-  if(rf1.largo()){ E.saque=0; bip(1000,60); redib=true; }
-  if(rf2.corto()) onPunto(1);
-  if(rf2.largo()){ E.saque=1; bip(1000,60); redib=true; }
-  if(rf3.corto()){ if(deshacer()) bip(900,70); else bip(350,140); redib=true; }
-  if(rf3.largo() || bDep.largo()){
-    iBri=(uint8_t)((iBri+1)%3); FastLED.setBrightness(BRILLOS[iBri]); bip(1500,40); redib=true; }
-#if BOTONES_CONTROL >= 4
-  if(rf4.corto()){ iBri=(uint8_t)((iBri+1)%3); FastLED.setBrightness(BRILLOS[iBri]); bip(1500,40); redib=true; }
-  if(rf4.largo()){ resetPartido(); bip(1200,90); bip(1700,120); redib=true; }
-#endif
+  if(bRst.corto()){ iBri=(uint8_t)((iBri+1)%3);
+    FastLED.setBrightness(BRILLOS[iBri]); bip(1500,40); redib=true; }
+  if(bRst.largo()){ resetPartido(); bip(1200,90); bip(1700,120); redib=true; }
   if(bDep.corto()) cambiarDeporte();
+  if(bDep.largo()) grabarControles();
+
+  // --- control remoto: 1 = punto A, 2 = punto B, 3 = deshacer ---
+  switch(rfLeer()){
+    case 1: onPunto(0); break;
+    case 2: onPunto(1); break;
+    case 3: if(deshacer()) bip(900,70); else bip(350,140); redib=true; break;
+  }
 
   if(sA.poll()) onPunto(0);
   if(sB.poll()) onPunto(1);

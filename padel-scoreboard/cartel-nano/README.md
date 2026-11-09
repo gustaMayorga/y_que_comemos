@@ -77,26 +77,53 @@ y el número del modo, y resetea el tanteo.
 
 ## 🎮 Controles
 
-### Control remoto (3 o 4 botones)
+### Control remoto — hay que **grabarlo** primero
 
-| Botón | Corto | Largo (1 s) |
-|:-:|---|---|
-| **1** | **+1 punto Equipo A** | el saque pasa a A |
-| **2** | **+1 punto Equipo B** | el saque pasa a B |
-| **3** | **DESHACER** (6 pasos) | ciclar brillo |
-| **4** *(si hay)* | ciclar brillo | reset del partido |
+El receptor MX-RM-5V no decodifica: el firmware aprende el código de cada botón.
+Se graban **2 llaveros de 3 botones** cada uno, y los dos hacen lo mismo.
 
-Con `BOTONES_CONTROL 3` el canal 4 no se usa y nada se pierde.
+| Botón grabado | Hace |
+|:-:|---|
+| **1º** | **+1 punto Equipo A** |
+| **2º** | **+1 punto Equipo B** |
+| **3º** | **DESHACER** (6 pasos) |
 
-El **deshacer restaura el estado completo**: también deshace un juego, un set o
-el partido si ese punto los había cerrado.
+El orden lo define **cómo los grabás**, no qué botón del llavero sea.
+
+El deshacer restaura el estado completo: también deshace un juego, un set o el
+partido si ese punto los había cerrado. Por eso con 3 botones alcanza — no hace
+falta un cuarto.
+
+### 🔴 Cómo grabar un control
+
+1. **Mantené apretado el botón DEPORTE 15 segundos.** Una **barra ámbar** se va
+   llenando en el panel para que sepas que está contando.
+2. Suena **bip bip biiip** y el panel muestra **`C1`** (o `C2`) y el número de
+   botón a grabar.
+3. **Apretá el botón 1 del llavero** → **bip bip** ✔
+4. **Apretá el botón 2** → **bip bip** ✔
+5. **Apretá el botón 3** → **biiiiiiiip** y sale solo. Listo.
+
+Todos los bips **prenden también el LED de la placa** (D13), así que podés
+grabar mirando el Arduino aunque el panel esté tapado.
+
+- La **primera vez** ocupa la dirección del **control 1**; la **segunda vez**, la
+  del **control 2**. Después vuelve a empezar por el 1.
+- Si apretás dos veces el mismo botón, **lo ignora** y sigue esperando otro.
+- Si pasan **30 segundos** sin apretar nada, **cancela** (bip grave) y no toca
+  nada de lo ya grabado.
+- Los códigos quedan en la **EEPROM**: sobreviven al apagado y hasta a recargar
+  el sketch.
+
+Por el puerto serie vas viendo todo, y si apretás un llavero sin grabar te dice:
+`[rf] codigo sin grabar: 12345678`
 
 ### Botones de la caja
 
 | | |
 |---|---|
-| **DEPORTE** (D12) | corto: **cambia de deporte** · largo: ciclar brillo |
-| **RESET** (A1) | **mantener 2 s**: una barra roja se va llenando; al llenarse, resetea |
+| **DEPORTE** (D12) | corto: **cambia de deporte** · **15 s: grabar controles** |
+| **RESET** (A1) | corto: **ciclar brillo** · 2 s: **resetea el partido** (barra roja) |
 
 ### Sensores de paleta
 
@@ -123,7 +150,8 @@ la paleta** para que vuelva a contar.
 
 ```c
 #define DEPORTE_INICIAL     0   // con cuál arranca
-#define BOTONES_CONTROL     3   // 3 o 4
+#define RF_CONTROLES        2   // cuántos llaveros se pueden grabar
+#define GRABAR_HOLD_MS  15000   // cuánto mantener DEPORTE para grabar
 #define SENSOR_TIPO         1   // 1 TCRT5000 · 2 FC-51 · 3 HC-SR04
 #define TCRT_UMBRAL        90   // cuánto tiene que cambiar la lectura (0-1023)
 #define PUNTO_SAQUE_ANCHO   2   // tamaño del indicador de saque
