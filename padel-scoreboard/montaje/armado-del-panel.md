@@ -100,7 +100,11 @@ cada soldadura**: alivio de tensión. Si no, el cable hace palanca y arranca el 
 
 Esta fase no se saltea. Reparar con el difusor puesto es rehacerlo todo.
 
-**3.1** Cargá `tools/demo_matriz` y corré:
+**3.1** 🏁 **Cargá `tools/test_cartel`**: corre solo 2 minutos y prueba todo
+(esquinas, recorrido, colores, un partido de pádel completo y un show de luces).
+Si las 6 fases pasan, el panel está terminado.
+
+Para revisar algo puntual a mano, `tools/demo_matriz`:
 - **`e`** → esquinas: 🔴 arr-izq · 🟢 arr-der · 🔵 ab-izq · 🟡 ab-der.
   Si no coinciden, ajustá `SERPENTINA` / `FILA0_INVERTIDA` / `ORIGEN_ARRIBA`.
 - **`m`** → recorrido LED por LED: tiene que serpentear.

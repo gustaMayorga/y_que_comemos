@@ -19,6 +19,9 @@
 #define F_CPU 16000000UL
 #endif
 #define F(x) (x)
+#define max(a,b) ((a)>(b)?(a):(b))
+#define min(a,b) ((a)<(b)?(a):(b))
+inline long random(long m){ return m? (long)(1103515245u % (unsigned long)m) : 0; }
 #define PROGMEM
 #define pgm_read_byte(p) (*(const uint8_t*)(p))
 inline void pinMode(uint8_t,uint8_t){}

@@ -22,6 +22,7 @@ difusor, alimentación por power bank o cargador USB.
 | **Cortar la tira** | [`docs/02` §6b](docs/02-display-7seg-led.md) | — |
 | **Armar y probar UN dígito** | [`docs/02` §5 y §7](docs/02-display-7seg-led.md) | **`tools/test_segmentos`** |
 | Probar colores y efectos en ese dígito | [`docs/02` §6](docs/02-display-7seg-led.md) | **`tools/demo_digito`** |
+| **Verificar el panel matriz terminado** | [`montaje/armado-del-panel.md`](montaje/armado-del-panel.md) | **`tools/test_cartel`** |
 | Que se lea a pleno sol | [`docs/02` §6](docs/02-display-7seg-led.md) | — |
 | **Conectar todo (el circuito)** | [`docs/01` §5](docs/01-hardware-bom.md) | — |
 | Conectar el receptor RF | [`docs/01` §5 y §6](docs/01-hardware-bom.md) | — |
@@ -43,6 +44,7 @@ difusor, alimentación por power bank o cargador USB.
 | [`tools/test_segmentos`](tools/test_segmentos) | **prueba UN dígito segmento por segmento** |
 | [`tools/demo_digito`](tools/demo_digito) | show completo sobre un dígito: 0-9, viborita, cometa, arcoíris y **prueba de colores al sol** |
 | [`tools/demo_matriz`](tools/demo_matriz) | prueba la idea del **panel matriz** (números, letras, texto corrido) — **corre en Nano** |
+| [`tools/test_cartel`](tools/test_cartel) | 🏁 **prueba de aceptación del panel 23×12**: 2 minutos, sin tocar nada |
 | [`firmware/padel_scoreboard`](firmware/padel_scoreboard) | el tanteador completo, versión **7 segmentos** |
 | [`display/`](display/) | el tanteador completo, versión **PANEL MATRIZ** 23×13 |
 
