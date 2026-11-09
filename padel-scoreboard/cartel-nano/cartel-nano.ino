@@ -365,26 +365,63 @@ void festejo(uint8_t t){
 volatile uint32_t rfCodigo = 0;
 volatile bool     rfListo  = false;
 
+// Validacion de tiempos. El pulso corto (alfa) de un EV1527 ronda los 250-500
+// us; el hueco de sincronismo son 31 alfas. Si lo medido cae fuera de estos
+// margenes es ruido y se descarta la trama entera.
+#define RF_ALFA_MIN   120
+#define RF_ALFA_MAX   800
+
 void rfISR(){
   static uint32_t ult = 0, dato = 0;
-  static uint16_t alto = 0;
+  static uint16_t alto = 0, alfa = 0;
   static uint8_t  bits = 0, sinc = 0;
   const uint32_t n = micros();
   const uint16_t d = (uint16_t)(n - ult);
   ult = n;
 
   if(digitalRead(PIN_RF_DATA)){            // flanco de subida: termino un BAJO
-    if(d > 3000 && d < 16000){             // hueco de sincronismo
-      if(bits == 24 && !rfListo){ rfCodigo = dato; rfListo = true; }
-      bits = 0; dato = 0; sinc = 1;
+    if(d > 3000 && d < 20000){             // posible hueco de sincronismo
+      const uint16_t a = d / 31;
+      if(a < RF_ALFA_MIN || a > RF_ALFA_MAX){ sinc = 0; return; }
+      if(sinc && bits == 24 && !rfListo){ rfCodigo = dato; rfListo = true; }
+      alfa = a; bits = 0; dato = 0; sinc = 1;
       return;
     }
     if(!sinc) return;
+    // cada bit son 4 alfas repartidos entre alto y bajo. Si no da, es ruido.
+    const uint16_t tot = alto + d;
+    if(tot < (uint16_t)(alfa*2) || tot > (uint16_t)(alfa*7)){ sinc = 0; return; }
     dato = (dato << 1) | (alto > d ? 1UL : 0UL);
-    if(bits < 24) bits++; else { sinc = 0; }
+    if(++bits > 24) sinc = 0;
   } else {                                 // flanco de bajada: termino un ALTO
     alto = d;
   }
+}
+
+// Una trama suelta no alcanza: el ruido genera tramas validas de vez en cuando.
+// Un llavero REPITE la misma trama varias veces por pulsacion, y el ruido nunca
+// repite el mismo valor de 24 bits. Por eso se exigen RF_REPES iguales seguidas.
+#define RF_REPES   2
+#define RF_VENTANA 400
+
+bool rfTrama(uint32_t* out){
+  if(!rfListo) return false;
+  noInterrupts(); const uint32_t c = rfCodigo; rfListo = false; interrupts();
+  if(c == 0 || c == 0xFFFFFFUL) return false;
+
+  static uint32_t cand = 0, tCand = 0, ultAcep = 0, tAcep = 0;
+  static uint8_t  rep = 0;
+  const uint32_t n = millis();
+
+  if(c == cand && n - tCand < RF_VENTANA) rep++;
+  else { cand = c; rep = 1; }
+  tCand = n;
+
+  if(rep < RF_REPES) return false;
+  if(c == ultAcep && n - tAcep < 450) return false;   // una pulsacion, un evento
+  ultAcep = c; tAcep = n; rep = 0;
+  *out = c;
+  return true;
 }
 
 #define EE_MAGIC_DIR  0
@@ -407,26 +444,19 @@ void rfGuardar(){
   for(uint8_t i=0;i<N_CODIGOS;i++) EEPROM.put(EE_CODIGOS + i*4, rfCod[i]);
   EEPROM.update(EE_PROX, rfProxCtrl);
 }
-// Espera un codigo nuevo. Devuelve 0 si se agoto el tiempo.
+// Espera un codigo validado. Devuelve 0 si se agoto el tiempo.
 uint32_t rfEsperar(uint16_t segundos){
   const uint32_t t0 = millis();
-  noInterrupts(); rfListo = false; interrupts();
-  while(millis() - t0 < (uint32_t)segundos*1000){
-    if(rfListo){
-      noInterrupts(); const uint32_t c = rfCodigo; rfListo = false; interrupts();
-      if(c) return c;
-    }
-  }
+  uint32_t c;
+  while(millis() - t0 < (uint32_t)segundos*1000)
+    if(rfTrama(&c)) return c;
   return 0;
 }
 // Devuelve 1, 2 o 3 segun la FUNCION del boton, de cualquiera de los llaveros.
 //   1 = punto equipo A   2 = punto equipo B   3 = deshacer
 uint8_t rfLeer(){
-  if(!rfListo) return 0;
-  noInterrupts(); const uint32_t c = rfCodigo; rfListo = false; interrupts();
-  static uint32_t ultC=0, ultT=0;
-  if(c == ultC && millis() - ultT < 400) return 0;   // el llavero repite la trama
-  ultC = c; ultT = millis();
+  uint32_t c;
+  if(!rfTrama(&c)) return 0;
   for(uint8_t i=0;i<N_CODIGOS;i++)
     if(rfCod[i] && rfCod[i] == c) return (uint8_t)(i % RF_BOTONES) + 1;
   Serial.print(F("[rf] codigo sin grabar: ")); Serial.println(c);

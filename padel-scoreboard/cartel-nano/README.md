@@ -281,6 +281,37 @@ arduino-cli lib install FastLED@3.6.0
 `fill_solid`, `fadeToBlackBy`, `HeatColor`, `CHSV`, `sin8`, `cos8`, `sqrt16`,
 `random16`. No se pierde nada, y compila **varias veces más rápido**.
 
+### 📻 El serie se llena de `[rf] codigo sin grabar` sin tocar nada
+
+```
+[rf] codigo sin grabar: 25272576
+[rf] codigo sin grabar: 2
+[rf] codigo sin grabar: 0
+...
+```
+
+**Es ruido del receptor, no un problema del cartel.** El MX-RM-5V es
+**super-regenerativo**: sin transmisor cerca amplifica el ruido de radio
+ambiente y saca bits al azar por el pin de datos. Es su comportamiento normal,
+no está fallado.
+
+El firmware lo filtra con dos barreras:
+
+1. **Validación de tiempos**: el pulso corto de un EV1527 mide 250-500 µs y el
+   sincronismo son 31 de esos. Si lo medido cae fuera de rango, se descarta la
+   trama entera.
+2. **Repetición**: hace falta recibir **la misma trama 2 veces seguidas** en
+   400 ms. Un llavero repite la trama 5-10 veces por pulsación; el ruido **nunca
+   repite el mismo valor de 24 bits**.
+
+Con eso el log queda limpio. Si todavía ves algún código suelto cada tanto,
+subí `RF_REPES` de 2 a 3.
+
+> 💡 **El arreglo de hardware** es pasar al **RXB6** (superheterodino, ~3 USD,
+> compatible pin a pin): tiene squelch y prácticamente no saca ruido, además del
+> doble de alcance. Con el MX-RM-5V el ruido también genera **muchísimas
+> interrupciones**, que le roban CPU al refresco de los LEDs.
+
 ### Otros errores frecuentes
 
 | Error | Qué pasa |
