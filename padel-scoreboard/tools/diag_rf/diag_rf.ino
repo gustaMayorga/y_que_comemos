@@ -37,6 +37,7 @@ volatile uint32_t codigo = 0;
 volatile uint16_t codBase = 0;
 volatile bool     codListo = false;
 volatile uint16_t nTramas = 0, nRuido = 0;
+volatile uint32_t nFlancos = 0;        // CUALQUIER cambio en el pin
 
 void isr(){
   static uint32_t ult = 0, dato = 0;
@@ -45,6 +46,7 @@ void isr(){
   const uint32_t n = micros();
   const uint16_t d = (uint16_t)(n - ult);
   ult = n;
+  nFlancos++;
 
   if(capturando && nCrudo < N_CRUDO){      // volcado crudo
     crudo[nCrudo++] = d;
@@ -89,6 +91,21 @@ void setup(){
   pinMode(PIN_DATA, INPUT);
   attachInterrupt(digitalPinToInterrupt(PIN_DATA), isr, CHANGE);
   delay(300);
+  // --- test decisivo: hay actividad en el pin? ---
+  Serial.println(F("\n[diag_rf] midiendo actividad en D2 durante 2 s..."));
+  nFlancos = 0; delay(2000);
+  const uint32_t f = nFlancos;
+  Serial.print(F("  flancos: ")); Serial.println(f);
+  if(f == 0){
+    Serial.println(F("  >> NO LLEGA NADA AL PIN. El receptor no esta alimentado,"));
+    Serial.println(F("     falta masa comun, o DATA no esta en D2."));
+  } else if(f < 200){
+    Serial.println(F("  >> poca actividad. Puede ser un receptor silencioso"));
+    Serial.println(F("     (superheterodino) o mala alimentacion."));
+  } else {
+    Serial.println(F("  >> EL RECEPTOR ESTA VIVO. Eso es ruido normal de un"));
+    Serial.println(F("     super-regenerativo sin transmisor cerca."));
+  }
   Serial.println(F("\n[diag_rf] escuchando en D2"));
   Serial.println(F("Con el llavero LEJOS no deberia salir casi nada."));
   Serial.println(F("Apreta un boton: la MISMA trama tiene que repetirse varias veces."));
@@ -135,8 +152,9 @@ void loop(){
 
   if(modo=='e' && millis()-tEst > 5000){
     tEst = millis();
-    Serial.print(F("[est] tramas validas: ")); Serial.print(nTramas);
-    Serial.print(F("   descartadas por ruido: ")); Serial.println(nRuido);
-    nTramas=nRuido=0;
+    Serial.print(F("[est] flancos: ")); Serial.print(nFlancos);
+    Serial.print(F("   tramas validas: ")); Serial.print(nTramas);
+    Serial.print(F("   descartadas: ")); Serial.println(nRuido);
+    nTramas=nRuido=0; nFlancos=0;
   }
 }

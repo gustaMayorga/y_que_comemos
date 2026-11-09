@@ -15,6 +15,10 @@ g++ -std=c++17 -Wall -Wextra tests/test_score.cpp "$FW/padel_score.cpp" -o "$TMP
   && "$TMP/test_score" || fail=1
 
 echo
+echo "== 1b) test del decodificador de radio =="
+g++ -std=c++17 -Wall tests/test_rf.cpp -o "$TMP/test_rf" && "$TMP/test_rf" | tail -3 || fail=1
+
+echo
 echo "== 2) compilacion de todas las variantes =="
 for board in BOARD_NANO BOARD_ESP32; do
   for lay in LAYOUT_BENCH LAYOUT_SPARSE LAYOUT_DEMO LAYOUT_FULL; do
