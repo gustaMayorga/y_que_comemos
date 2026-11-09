@@ -337,7 +337,23 @@ Si no sale nada:
    es de 2 m, y a veces ni eso.
 2. **El pin.** `DATA` tiene que ir a **D2 o D3**: son los únicos del Nano con
    interrupción.
-3. **La pila del llavero.** Una CR2032 gastada transmite apenas.
+3. **La pila del llavero.** Es lo que más falla y lo más engañoso.
+
+   | Pila | Nueva | Gastada |
+   |---|---|---|
+   | **A23 / 23A** (12 V, la típica de llavero de portón) | 12,0-12,6 V | **por debajo de 11 V** |
+   | CR2032 (3 V) | 3,0-3,3 V | por debajo de 2,8 V |
+
+   Las A23 son 8 pilitas apiladas y tienen **mucha resistencia interna**: una
+   a 10,4 V en vacío se desploma a 7-8 V cuando el transmisor pide corriente, y
+   ahí el oscilador de RF **ni arranca**.
+
+   ⚠️ **Que el LED del llavero encienda NO prueba que esté transmitiendo.** El
+   LED se conforma con 2 mA; la etapa de radio necesita bastante más y además
+   que la tensión no caiga. Con la pila floja, **el LED prende igual y no sale
+   nada al aire**.
+
+   Medila **mientras apretás el botón**: si cae por debajo de 9 V, cambiala.
 4. **El protocolo.** Corré `c` y apretá el botón: si el volcado muestra tiempos
    pero el decodificador no arma la trama, tu llavero usa otra codificación.
    Pasame el volcado y lo adapto.
