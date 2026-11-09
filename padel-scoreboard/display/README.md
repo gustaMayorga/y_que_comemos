@@ -1,3 +1,7 @@
+> ⚠️ **SUPERSEDIDO por [`../nano_vfinal/`](../nano_vfinal/)**, que hace todo
+> esto y además 8 deportes, grabación de controles RF y 4 tipos de sensor.
+> Esta carpeta queda como referencia; **para armar, usá `nano_vfinal`**.
+
 # 🖥️ Tanteador de pádel — versión PANEL MATRIZ (Nano)
 
 Línea "moderna": en vez de 7 segmentos, una **grilla de píxeles** donde se dibuja

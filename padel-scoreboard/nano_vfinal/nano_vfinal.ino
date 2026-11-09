@@ -1,6 +1,9 @@
 // ============================================================================
 //  TANTEADOR MULTIDEPORTE  -  Panel LED 23 x 12  -  Arduino Nano
-//  Version simple / entrenamiento.  Ver README.md y ESQUEMATICO.md
+//  VERSION FINAL de la linea Nano.  Ver README.md y ESQUEMATICO.md
+//
+//  8 deportes · control remoto 433 MHz con grabacion de llaveros ·
+//  4 tipos de sensor de paleta · encendido automatico por presencia
 //
 //  8 deportes con sus reglas reales, control remoto de 3 o 4 botones y
 //  2 sensores de proximidad de paleta (izquierda = A, derecha = B).

@@ -1,5 +1,5 @@
 #include <string>
-// Prueba del decodificador de radio de cartel-nano, con tramas sintetizadas.
+// Prueba del decodificador de radio de nano_vfinal, con tramas sintetizadas.
 // Reproduce la logica de rfISR() y le inyecta los flancos de una trama conocida
 // en varios protocolos, para verificar que decodifica el codigo correcto.
 //   g++ -std=c++17 tests/test_rf.cpp -o /tmp/test_rf && /tmp/test_rf

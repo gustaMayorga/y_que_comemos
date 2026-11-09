@@ -1,22 +1,39 @@
-# 🏟️ Tanteador multideporte — versión simple (Arduino Nano)
+# 🏟️ Tanteador multideporte — **versión final Nano**
 
 Todo en una carpeta: **firmware + esquemático + instrucciones**.
 Panel LED de **23 × 12 = 276 píxeles**, **8 deportes**, control remoto y
 sensores de paleta.
 
+**Ruta:** `padel-scoreboard/nano_vfinal/`
+
 | Archivo | |
 |---|---|
-| `cartel-nano.ino` | el firmware completo |
+| `nano_vfinal.ino` | el firmware completo |
 | `ESQUEMATICO.md` | el cableado, pin por pin |
 | `README.md` | esto |
 
 ```bash
 arduino-cli lib install FastLED
-arduino-cli compile --fqbn arduino:avr:nano cartel-nano
-arduino-cli upload  --fqbn arduino:avr:nano -p /dev/ttyUSB0 cartel-nano
+arduino-cli compile --fqbn arduino:avr:nano nano_vfinal
+arduino-cli upload  --fqbn arduino:avr:nano -p /dev/ttyUSB0 nano_vfinal
 ```
 
 ---
+
+## ✅ Qué trae esta versión
+
+- **8 deportes** con reglas reales (pádel oro y ventajas, tenis 3 y 5 sets,
+  vóley, ping pong, básquet, fútbol)
+- **Control remoto 433 MHz con grabación de llaveros**: receptor crudo
+  MX-RM-5V/RXB6, decodificador EV1527 propio, 2 llaveros × 3 botones,
+  filtro de ruido y guardado en EEPROM
+- **4 tipos de sensor de paleta** seleccionables: TCRT5000, FC-51,
+  dos HC-SR04, o **un solo HC-SR04 por zonas**
+- **Encendido automático por presencia** con RCWL-0516 (opcional)
+- Indicador de saque **al lado de cada equipo** (convención profesional)
+- Aviso de punto de juego / set / partido en la columna del centro
+- Deshacer de 6 pasos que restaura el estado completo
+- Festejo con fuegos artificiales y `GANA A` / `GANA B` en texto corrido
 
 ## 🏅 Los 8 deportes
 
@@ -172,7 +189,7 @@ la paleta** para que vuelva a contar.
 
 ---
 
-## ⚙️ Ajustes rápidos en `cartel-nano.ino`
+## ⚙️ Ajustes rápidos en `nano_vfinal.ino`
 
 ```c
 #define DEPORTE_INICIAL     0   // con cuál arranca
@@ -373,7 +390,7 @@ Si no sale nada:
 4. **El protocolo.** Corré `c` y apretá el botón: si el volcado muestra tiempos
    pero el decodificador no arma la trama, tu llavero usa otra codificación.
    Pasame el volcado y lo adapto.
-5. Poné `RF_DEBUG true` en `cartel-nano.ino` para ver cada trama por el serie.
+5. Poné `RF_DEBUG true` en `nano_vfinal.ino` para ver cada trama por el serie.
 
 > ⚠️ **No derivamos el pulso base del sincronismo.** El EV1527 usa una relación
 > de 31:1, pero el PT2262 puede usar 4, 8, 16 o 31. La validación es **por

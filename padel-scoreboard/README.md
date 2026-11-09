@@ -9,8 +9,8 @@ difusor, alimentación por power bank o cargador USB.
 > es donde se arrancó. Es autocontenido: se mueve a su propio repo moviendo sólo
 > `padel-scoreboard/`.
 
-> ⭐ **El firmware para usar:** [`cartel-nano/`](cartel-nano/) — `.ino` + esquemático
-> + instrucciones en una sola carpeta, con los 8 deportes.
+> ⭐ **El firmware para usar:** [`nano_vfinal/`](nano_vfinal/) — `.ino` + esquemático
+> + instrucciones en una sola carpeta, con los 8 deportes y el RF grabable.
 >
 > 🔧 **¿Vas a armarlo ahora?** Empezá por **[`montaje/`](montaje/)**: el plano del
 > panel, el mapa de LEDs, el circuito y la checklist, todo en una página.

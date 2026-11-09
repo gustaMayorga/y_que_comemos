@@ -65,7 +65,7 @@ done
 
 echo
 echo "== 4) compilacion de los firmwares de panel =="
-for fw in display/display/display.ino cartel-nano/cartel-nano.ino; do
+for fw in display/display/display.ino nano_vfinal/nano_vfinal.ino; do
 d="$TMP/$(basename $fw .ino)"; mkdir -p "$d"
 cp "$fw" "$d/sketch.cpp"
 out=$(g++ -std=c++14 -Wall -Wextra -Wno-unused-parameter -I"$STUB" \
