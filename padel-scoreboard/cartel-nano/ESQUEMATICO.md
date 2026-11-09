@@ -28,7 +28,7 @@
                        ┌───────────────┐
         RF 433 DATA  ──►┤ D2        D13 ├── LED de la placa (bips)
    HC-SR04 ECHO A  ──►┤ D3        D12 ├── botón DEPORTE → a GND
-                      ┤ D4        D11 ├── buzzer (vía BC337)
+   RCWL-0516 OUT  ──►┤ D4        D11 ├── buzzer (vía BC337)
    HC-SR04 ECHO B  ──►┤ D5        D10 ├── libre
    DATO de la tira ◄──┤ D6         D9 ├── libre
                       ┤ D7         D8 ├── libre
@@ -200,6 +200,38 @@ Salida digital, alcance 2-30 cm regulable con el potenciómetro.
 ```
 Alcance 2-400 cm e **inmune al sol**. Es el único que funciona de verdad a
 20 cm al aire libre.
+
+## Detector de presencia RCWL-0516 (opcional)
+
+```
+   RCWL-0516                  Nano
+   VIN ──────────────────────► 5 V
+   GND ──────────────────────► GND
+   OUT ──────────────────────► D4      (sale 3,3 V: el Nano lo lee como HIGH)
+   CDS ── sin conectar
+```
+
+**Qué es**: un radar Doppler de microondas de 3,2 GHz. Detecta **movimiento**,
+no presencia ni distancia.
+
+**Para qué NO sirve acá**: no puede contar puntos. Alcanza 5-9 m, no distingue
+un equipo del otro, y se dispara con cualquiera que pase por la cancha.
+
+**Para qué SÍ sirve**: 🌙 **encender el cartel cuando llega gente y apagarlo
+cuando no hay nadie.** Y tiene una ventaja enorme: **atraviesa el plástico y la
+madera**, así que va **adentro de la caja sellada**, sin agujeros ni ventanas.
+
+```c
+#define PIN_PRESENCIA   4     // -1 para desactivarlo
+#define DORMIR_MIN     10     // minutos sin movimiento para apagar
+```
+
+Cualquier punto, botón o movimiento lo despierta.
+
+> ⚠️ **Dormir no apaga del todo el consumo.** Un WS2812B apagado igual consume
+> ~1 mA de reposo: 276 LEDs son **~0,3 A** aunque estén negros. Pasa de ~1,4 A a
+> ~0,3 A, que ya es 4 veces menos. Para cortar de verdad hay que poner un
+> **MOSFET de lado alto** en los 5 V de la tira, comandado por otro pin.
 
 ## Botones y buzzer
 

@@ -236,6 +236,22 @@ o achicá el panel.
 
 ---
 
+## 🌙 Encendido automático por presencia (opcional)
+
+Si tenés un **RCWL-0516**, el cartel se enciende solo cuando llega alguien y se
+apaga cuando la cancha queda vacía.
+
+```c
+#define PIN_PRESENCIA   4     // -1 para desactivarlo
+#define DORMIR_MIN     10     // minutos sin movimiento
+```
+
+Es un **radar Doppler de microondas**: detecta movimiento a 5-9 m y **atraviesa
+plástico y madera**, así que va **adentro de la caja sellada**, sin agujeros.
+
+**No sirve para contar puntos**: no distingue equipos, no mide distancia y se
+dispara con cualquiera que pase. Para eso van los HC-SR04.
+
 ## 🔧 Problemas al compilar
 
 ### `No space left on device` en `AppData\Local\Temp`

@@ -55,6 +55,16 @@
 #define PIN_RESET        A1      // corto = brillo  | 2 s  = reset del partido
 #define PIN_LED_PLACA    13      // el LED de la propia placa, acompana los bips
 
+// --- DETECTOR DE PRESENCIA (opcional) ---------------------------------------
+//  RCWL-0516: radar Doppler de microondas. Detecta MOVIMIENTO a 5-9 m y
+//  atraviesa plastico y madera, asi que puede ir ADENTRO de la caja sellada.
+//  No sirve para contar puntos (no distingue equipos ni mide distancia), pero
+//  es perfecto para encender el cartel cuando alguien llega a la cancha y
+//  apagarlo cuando no hay nadie.
+//  Poner PIN_PRESENCIA en -1 para desactivarlo.
+#define PIN_PRESENCIA     4
+#define DORMIR_MIN       10      // minutos sin movimiento para apagar
+
 #define MILIAMPERES    2600
 #define BRILLO_DIA      200
 #define DEPORTE_INICIAL   0      // ver la tabla de abajo
@@ -594,6 +604,23 @@ Sensor sA, sB;
 Boton bDep, bRst;
 const uint8_t BRILLOS[3]={BRILLO_DIA,120,45};
 uint8_t iBri=0; bool redib=true, barra=false;
+bool durmiendo=false; uint32_t tActividad=0;
+
+// Cualquier punto, boton o movimiento despierta el cartel.
+void despertar(){
+  tActividad = millis();
+  if(durmiendo){ durmiendo=false; FastLED.setBrightness(BRILLOS[iBri]); redib=true;
+                 Serial.println(F("[presencia] despierta")); }
+}
+void dormirSiNadie(){
+#if PIN_PRESENCIA >= 0
+  if(digitalRead(PIN_PRESENCIA)) despertar();
+  if(!durmiendo && millis()-tActividad > (uint32_t)DORMIR_MIN*60000UL){
+    durmiendo=true; limpiar(); mostrar();
+    Serial.println(F("[presencia] sin movimiento: cartel en reposo"));
+  }
+#endif
+}
 
 int ramLibre(){
 #if defined(__AVR__)
@@ -618,6 +645,7 @@ void cambiarDeporte(){
   bip(1600,80); mostrarDeporte(); redib=true;
 }
 void onPunto(uint8_t t){
+  despertar();
   if(E.gan!=0xFF){ bip(300,180); return; }
   punto(t); bip(1800,50); dibujar();
   if(flags&4)      festejo(E.gan);
@@ -688,6 +716,10 @@ void setup(){
   FastLED.setBrightness(BRILLOS[iBri]);
   limpiar(); mostrar();
   pinMode(PIN_LED_PLACA,OUTPUT);
+#if PIN_PRESENCIA >= 0
+  pinMode(PIN_PRESENCIA,INPUT);
+#endif
+  tActividad=millis();
 #if SENSOR_TIPO == 4
   pinMode(PIN_SENS_A,OUTPUT); digitalWrite(PIN_SENS_A,LOW); pinMode(PIN_ECHO_A,INPUT);
 #else
@@ -724,6 +756,11 @@ void setup(){
 
 void loop(){
   bDep.poll(); bRst.poll();
+  dormirSiNadie();
+  if(durmiendo){                      // en reposo solo se escuchan las entradas
+    if(bDep.corto()||bDep.largo()||bRst.corto()||bRst.largo()||rfLeer()) despertar();
+    return;
+  }
 
   // --- RESET: barra roja mientras se mantiene ---
   if(bRst.sost()){
