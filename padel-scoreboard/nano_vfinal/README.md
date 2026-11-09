@@ -154,6 +154,16 @@ el control. Tres tipos soportados, se elige con `SENSOR_TIPO`:
 | **3 · dos HC-SR04** | 2-400 cm | ✅ inmune | acercar a 20 cm · **el mejor** |
 | **4 · UN HC-SR04** | dos zonas | ✅ inmune | **cerca = A · lejos = B** |
 
+**Cableado de los HC-SR04** — la A y la B son el **equipo**, no una pata:
+
+| | Equipo A | Equipo B |
+|---|---|---|
+| **TRIG** | A2 | A3 |
+| **ECHO** | **D3** | **D5** |
+
+Con **un solo sensor** usás nada más que la columna de la izquierda: `TRIG → A2`
+y `ECHO → D3`.
+
 ### Modo 4: un solo sensor, dos zonas
 
 Con un único HC-SR04 **no se puede saber de qué lado vino la paleta**: mide
@@ -259,9 +269,12 @@ Si tenés un **RCWL-0516**, el cartel se enciende solo cuando llega alguien y se
 apaga cuando la cancha queda vacía.
 
 ```c
-#define PIN_PRESENCIA   4     // -1 para desactivarlo
+#define PIN_PRESENCIA   4     // poné 4 sólo si lo conectás
 #define DORMIR_MIN     10     // minutos sin movimiento
 ```
+
+> **Viene desactivado (`-1`).** Si no tenés el sensor, no toques nada: el cartel
+> queda siempre encendido y listo.
 
 Es un **radar Doppler de microondas**: detecta movimiento a 5-9 m y **atraviesa
 plástico y madera**, así que va **adentro de la caja sellada**, sin agujeros.

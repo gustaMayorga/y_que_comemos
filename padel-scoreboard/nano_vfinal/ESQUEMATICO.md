@@ -192,12 +192,23 @@ boca. Eso es lo que lo hace usable al sol, que es su gran debilidad.
 Salida digital, alcance 2-30 cm regulable con el potenciómetro.
 ⚠️ Se ciega con el sol directo.
 
-### Tipo 3 — HC-SR04 ultrasónico
+### Tipo 3 — dos HC-SR04 · Tipo 4 — uno solo
+
+⚠️ **La A y la B son el EQUIPO, no una pata del módulo.** Cada HC-SR04 tiene
+sus propios `TRIG` y `ECHO`; lo que cambia es a qué pin del Nano va cada uno.
 
 ```
-   VCC  ──► 5 V       TRIG ──► A2 (A) / A3 (B)
-   GND  ──► GND       ECHO ──► D3 (A) / D5 (B)
+   SENSOR DEL EQUIPO A (izquierda)      SENSOR DEL EQUIPO B (derecha)
+   ───────────────────────────────      ─────────────────────────────
+     VCC  ──────────► 5 V                 VCC  ──────────► 5 V
+     TRIG ──────────► A2                  TRIG ──────────► A3
+     ECHO ──────────► D3                  ECHO ──────────► D5
+     GND  ──────────► GND                 GND  ──────────► GND
 ```
+
+**Con UN solo sensor** (`SENSOR_TIPO 4`): conectás **sólo la columna de la
+izquierda** — `TRIG → A2` y `ECHO → D3`. Los pines A3 y D5 quedan libres.
+
 Alcance 2-400 cm e **inmune al sol**. Es el único que funciona de verdad a
 20 cm al aire libre.
 
@@ -210,6 +221,12 @@ Alcance 2-400 cm e **inmune al sol**. Es el único que funciona de verdad a
    OUT ──────────────────────► D4      (sale 3,3 V: el Nano lo lee como HIGH)
    CDS ── sin conectar
 ```
+
+> **Si no lo vas a usar, dejá `PIN_PRESENCIA -1`** (así viene por defecto) y no
+> conectes nada. Con -1 todo el código de reposo queda fuera de la compilación
+> y el cartel no se apaga nunca. **No dejes el pin al aire con un número
+> válido**: flotando lee cualquier cosa y el cartel se dormiría o despertaría
+> solo.
 
 **Qué es**: un radar Doppler de microondas de 3,2 GHz. Detecta **movimiento**,
 no presencia ni distancia.

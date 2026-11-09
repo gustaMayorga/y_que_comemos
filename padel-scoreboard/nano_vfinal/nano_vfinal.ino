@@ -32,10 +32,21 @@
 //      No se puede detectar el sentido del movimiento con un solo sensor
 //      (mide distancia, no angulo), pero por zonas funciona perfecto.
 #define SENSOR_TIPO       4
-#define PIN_SENS_A       A2      // TCRT/FC-51: la salida. HC-SR04: el TRIG
-#define PIN_SENS_B       A3
-#define PIN_ECHO_A        3      // solo con HC-SR04
-#define PIN_ECHO_B        5
+//
+//  OJO: la A y la B son el EQUIPO, no una pata del modulo. Cada HC-SR04 tiene
+//  sus propios TRIG y ECHO. Asi queda el cableado segun el tipo:
+//
+//    tipo            sensor equipo A         sensor equipo B
+//    ------------------------------------------------------------
+//    1 TCRT5000      salida -> A2            salida -> A3
+//    2 FC-51         OUT    -> A2            OUT    -> A3
+//    3 dos HC-SR04   TRIG -> A2, ECHO -> D3  TRIG -> A3, ECHO -> D5
+//    4 UN HC-SR04    TRIG -> A2, ECHO -> D3  (no se usa)
+//
+#define PIN_SENS_A       A2      // equipo A: la salida, o el TRIG del HC-SR04
+#define PIN_ECHO_A        3      // equipo A: el ECHO del HC-SR04
+#define PIN_SENS_B       A3      // equipo B: idem (sin uso en el tipo 4)
+#define PIN_ECHO_B        5      // equipo B: el ECHO del HC-SR04
 #define SENS_ACTIVO_BAJO true    // solo con FC-51
 #define TCRT_UMBRAL      90      // cuanto tiene que cambiar la lectura (0-1023)
 #define PROX_CM          20      // tipo 3: distancia que dispara
@@ -64,8 +75,10 @@
 //  No sirve para contar puntos (no distingue equipos ni mide distancia), pero
 //  es perfecto para encender el cartel cuando alguien llega a la cancha y
 //  apagarlo cuando no hay nadie.
-//  Poner PIN_PRESENCIA en -1 para desactivarlo.
-#define PIN_PRESENCIA     4
+//  SI NO LO TENES INSTALADO, DEJALO EN -1 (como viene). Con -1 todo el codigo
+//  de reposo queda fuera de la compilacion y el cartel no se apaga nunca.
+//  Si lo conectas, poné 4 (o el pin que uses).
+#define PIN_PRESENCIA    -1
 #define DORMIR_MIN       10      // minutos sin movimiento para apagar
 
 #define MILIAMPERES    2600
