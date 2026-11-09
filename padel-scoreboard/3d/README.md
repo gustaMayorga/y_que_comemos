@@ -109,3 +109,7 @@ pasar una cinta de velcro que lo sujeta, y dos orejas con agujeros de 5 mm para
 precintos o tornillos contra la parte de atrás del panel.
 
 Se imprime con el fondo contra la cama, sin soporte.
+
+## Carcasa del sensor HC-SR04
+
+[`carcasa_hcsr04.scad`](carcasa_hcsr04.scad) + [guia de armado](carcasa-hcsr04.md) — caja de dos piezas, encastre a presion, 49.8 x 24.8 x 24.2 mm.

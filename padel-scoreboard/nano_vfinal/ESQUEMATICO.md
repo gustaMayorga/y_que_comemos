@@ -241,6 +241,12 @@ las lecturas son mucho más estables que con el sensor suelto.
    goma**, gomaespuma o una gota de **silicona neutra** en vez de a presión.
 4. Dejá **2 cm libres de obstáculos** por delante: ese es su punto ciego.
 
+### 🖨️ Carcasa imprimible
+
+Hay un modelo parametrico listo en `3d/carcasa_hcsr04.scad`, con la guia de
+armado en `3d/carcasa-hcsr04.md`. Resuelve los tres puntos de arriba: agujeros
+de 16.6 mm, cara delantera de solo 2 mm y sellado con silicona.
+
 ### 🌧️ Para la intemperie: JSN-SR04T
 
 El HC-SR04 común **no es estanco**: la humedad en las cápsulas lo degrada. Para
