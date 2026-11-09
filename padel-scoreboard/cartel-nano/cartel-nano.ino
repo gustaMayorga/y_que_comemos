@@ -23,15 +23,25 @@
 // --- SENSORES DE PALETA -----------------------------------------------------
 //  1 = TCRT5000 crudo  (analogico, hay que armarle el circuito, alcance 5-15 mm)
 //  2 = modulo IR de obstaculo FC-51 (salida digital, alcance 2-30 cm)
-//  3 = HC-SR04 ultrasonico (TRIG+ECHO, alcance 2-400 cm, inmune al sol)
-#define SENSOR_TIPO       1
+//  3 = DOS HC-SR04 ultrasonicos (TRIG+ECHO cada uno). Lo mejor: inmune al sol
+//  4 = UN SOLO HC-SR04 con DOS ZONAS de distancia:
+//        paleta CERCA  -> equipo A        paleta LEJOS -> equipo B
+//      No se puede detectar el sentido del movimiento con un solo sensor
+//      (mide distancia, no angulo), pero por zonas funciona perfecto.
+#define SENSOR_TIPO       4
 #define PIN_SENS_A       A2      // TCRT/FC-51: la salida. HC-SR04: el TRIG
 #define PIN_SENS_B       A3
 #define PIN_ECHO_A        3      // solo con HC-SR04
 #define PIN_ECHO_B        5
 #define SENS_ACTIVO_BAJO true    // solo con FC-51
 #define TCRT_UMBRAL      90      // cuanto tiene que cambiar la lectura (0-1023)
-#define PROX_CM          20      // solo con HC-SR04
+#define PROX_CM          20      // tipo 3: distancia que dispara
+// tipo 4: las dos zonas. Entre ZONA_A_MAX y ZONA_B_MIN queda una banda muerta
+// a proposito, para que no haya dudas en el limite.
+#define ZONA_A_MIN        4
+#define ZONA_A_MAX       20
+#define ZONA_B_MIN       27
+#define ZONA_B_MAX       55
 // --- CONTROL REMOTO ---------------------------------------------------------
 //  Receptor CRUDO de 433 MHz (MX-RM-5V / XY-MK-5V / RXB6): entrega el flujo de
 //  bits en bruto por UN pin, y el codigo del llavero se decodifica por software.
@@ -482,6 +492,51 @@ struct Sensor {
 #endif
   }
 };
+
+#if SENSOR_TIPO == 4
+// ---------------------------------------------------------------------------
+//  UN SOLO HC-SR04, DOS ZONAS
+//
+//  Con un unico sensor no hay forma de saber de que lado vino la paleta: el
+//  HC-SR04 mide distancia, no direccion. Lo que si se puede es partir el
+//  alcance en dos zonas y que cada equipo use la suya.
+//
+//      |<-- A -->|   muerta   |<------- B ------->|
+//      4        20 cm      27                   55 cm
+//
+//  Mismo antirrebote de 3 barreras, y ademas hay que salir de la zona para
+//  que vuelva a contar: asi, pasar de la zona B a la A no cuenta dos veces.
+// ---------------------------------------------------------------------------
+uint8_t zonaDe(uint16_t cm){
+  if(cm >= ZONA_A_MIN && cm <= ZONA_A_MAX) return 1;
+  if(cm >= ZONA_B_MIN && cm <= ZONA_B_MAX) return 2;
+  return 0;
+}
+uint16_t medirCm(uint8_t trig, uint8_t eco){
+  digitalWrite(trig,LOW);  delayMicroseconds(3);
+  digitalWrite(trig,HIGH); delayMicroseconds(10);
+  digitalWrite(trig,LOW);
+  const unsigned long d = pulseIn(eco,HIGH,25000UL);
+  return d ? (uint16_t)(d*0.01715f) : 999;
+}
+// Devuelve 0 = nada, 1 = equipo A, 2 = equipo B
+uint8_t sensorUnico(){
+  static uint8_t st=0, zona=0; static uint32_t t0=0, tMed=0;
+  const uint32_t n = millis();
+  if(n - tMed < 55) return 0;              // no medir mas rapido que eso
+  tMed = n;
+  const uint8_t z = zonaDe(medirCm(PIN_SENS_A, PIN_ECHO_A));
+  switch(st){
+    case 0: if(z){ st=1; zona=z; t0=n; } break;
+    case 1: if(z != zona) st=0;
+            else if(n-t0 >= SENS_SOSTENER_MS){ st=2; t0=n; return zona; }
+            break;
+    case 2: if(n-t0 >= SENS_BLOQUEO_MS) st=3; break;
+    case 3: if(!z) st=0; break;            // hay que retirar la paleta
+  }
+  return 0;
+}
+#endif
 struct Boton {
   uint8_t pin; bool alto, est, crudo, evC, evL, yaL; uint32_t tc, td; uint16_t lMs;
   void begin(uint8_t p, bool a, uint16_t l){
@@ -599,7 +654,11 @@ void setup(){
   FastLED.setBrightness(BRILLOS[iBri]);
   limpiar(); mostrar();
   pinMode(PIN_LED_PLACA,OUTPUT);
+#if SENSOR_TIPO == 4
+  pinMode(PIN_SENS_A,OUTPUT); digitalWrite(PIN_SENS_A,LOW); pinMode(PIN_ECHO_A,INPUT);
+#else
   sA.begin(PIN_SENS_A, PIN_ECHO_A); sB.begin(PIN_SENS_B, PIN_ECHO_B);
+#endif
   pinMode(PIN_RF_DATA, INPUT);
   attachInterrupt(digitalPinToInterrupt(PIN_RF_DATA), rfISR, CHANGE);
   rfCargar();
@@ -615,7 +674,12 @@ void setup(){
     Serial.print(F("  controles grabados: ")); Serial.print(n/RF_BOTONES);
     Serial.print(F(" de ")); Serial.println(RF_CONTROLES);
     if(!n) Serial.println(F("  -> manten el boton DEPORTE 15 s para grabar")); }
-#if SENSOR_TIPO == 1
+#if SENSOR_TIPO == 4
+  Serial.print(F("  1 sensor, 2 zonas: A "));
+  Serial.print(ZONA_A_MIN); Serial.print('-'); Serial.print(ZONA_A_MAX);
+  Serial.print(F(" cm | B ")); Serial.print(ZONA_B_MIN); Serial.print('-');
+  Serial.print(ZONA_B_MAX); Serial.println(F(" cm"));
+#elif SENSOR_TIPO == 1
   Serial.print(F("  sensores TCRT5000 en reposo: A="));
   Serial.print(sA.crudo()); Serial.print(F("  B=")); Serial.println(sB.crudo());
   Serial.println(F("  (acerca la paleta y mira cuanto cambia -> ajusta TCRT_UMBRAL)"));
@@ -654,8 +718,12 @@ void loop(){
     case 3: if(deshacer()) bip(900,70); else bip(350,140); redib=true; break;
   }
 
+#if SENSOR_TIPO == 4
+  { const uint8_t z = sensorUnico(); if(z) onPunto(z-1); }
+#else
   if(sA.poll()) onPunto(0);
   if(sB.poll()) onPunto(1);
+#endif
 
   static uint32_t tD=0;
   const bool titila = (E.gan==0xFF) && (aviso(0)==3 || aviso(1)==3);

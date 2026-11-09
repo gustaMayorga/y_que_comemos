@@ -132,9 +132,35 @@ el control. Tres tipos soportados, se elige con `SENSOR_TIPO`:
 
 | | Alcance | Al sol | Interacción |
 |---|---|---|---|
-| **1 · TCRT5000** crudo | **5-15 mm** | ⚠️ sólo si va embutido | **apoyar** la paleta |
+| **1 · TCRT5000** crudo | 5-15 mm | ⚠️ sólo si va embutido | **apoyar** la paleta |
 | **2 · FC-51** módulo | 2-30 cm | ❌ se ciega | acercar |
-| **3 · HC-SR04** | 2-400 cm | ✅ inmune | acercar a 20 cm |
+| **3 · dos HC-SR04** | 2-400 cm | ✅ inmune | acercar a 20 cm · **el mejor** |
+| **4 · UN HC-SR04** | dos zonas | ✅ inmune | **cerca = A · lejos = B** |
+
+### Modo 4: un solo sensor, dos zonas
+
+Con un único HC-SR04 **no se puede saber de qué lado vino la paleta**: mide
+distancia, no ángulo ni dirección. Pero sí se puede partir el alcance en dos:
+
+```
+   |<---- EQUIPO A ---->|  muerta  |<-------- EQUIPO B -------->|
+   4                   20 cm      27                          55 cm
+```
+
+La **banda muerta** entre 20 y 27 cm está a propósito: evita dudas en el límite.
+Y hay que **retirar la paleta** antes de que vuelva a contar, así pasar de la
+zona B a la A no suma dos puntos.
+
+```c
+#define ZONA_A_MIN  4
+#define ZONA_A_MAX 20
+#define ZONA_B_MIN 27
+#define ZONA_B_MAX 55
+```
+
+Funciona bien y se aprende en dos puntos, pero **el segundo HC-SR04 cuesta
+1,50 USD** y con dos sensores la interacción es obvia sin explicar nada:
+izquierda = A, derecha = B. Si podés, comprá el segundo.
 
 Con el **TCRT5000** la lectura es analógica y **se autocalibra**: va siguiendo su
 propio nivel de reposo, así que se adapta a la luz que cambia durante el día.
