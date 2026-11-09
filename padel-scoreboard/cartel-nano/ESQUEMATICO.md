@@ -83,18 +83,89 @@ firmware lo lee como una pulsación eterna.
 
 ## Sensores de paleta
 
+El firmware soporta tres tipos. Se elige con `SENSOR_TIPO` en el `.ino`.
+
+### Tipo 1 — TCRT5000 crudo (el de 4 patas, sin plaquita)
+
+⚠️ **No es un módulo: es el componente pelado.** No trae comparador ni
+potenciómetro ni salida digital. Hay que armarle el circuito y leerlo por
+entrada **analógica**.
+
 ```
-   IR de obstáculo (FC-51)           Ultrasónico (HC-SR04)
-   ─────────────────────             ─────────────────────
-     VCC ──► 5 V                       VCC  ──► 5 V
-     GND ──► GND                       TRIG ──► D2 (A) / D4 (B)
-     OUT ──► D2 (A) / D3 (B)           ECHO ──► D3 (A) / D5 (B)
-                                       GND  ──► GND
+            ┌──────────────────────────────────── 5 V
+            │              │
+         [ 220 Ω ]      [ 10 kΩ ]
+            │              │
+         ┌──┴──┐        ┌──┴──┐
+         │ LED │        │ FOTO│──────────────────► A2  (equipo A)
+         │ IR  │        │ TR. │                    A3  (equipo B)
+         └──┬──┘        └──┬──┘
+            │              │
+           GND            GND
 ```
 
-⚠️ **Los IR se enciegan con el sol directo.** Para cancha techada o para probar
-van bien; al aire libre, montalos bajo una visera apuntando hacia abajo, o pasá
-a HC-SR04, que son inmunes.
+- **220 Ω** limita la corriente del LED infrarrojo (~15 mA).
+- **10 kΩ** es el pull-up del colector del fototransistor.
+- La salida va a **A2 / A3** (entradas **analógicas**, no digitales).
+- En reposo la lectura es alta; **al acercar algo baja**. El firmware se
+  autocalibra, así que no importa el valor exacto.
+
+**Cómo identificar las patas** (las dos mitades se parecen):
+
+1. Mirando de frente, una mitad es **azulada/translúcida** (el LED IR) y la otra
+   **negra** (el fototransistor).
+2. Con el multímetro en **modo diodo**, la que marca **~1,1-1,3 V** en un sentido
+   y nada en el otro es el **LED**. La otra mitad no marca diodo claro.
+3. En el LED, la pata del lado que marca con la punta **roja** es el **ánodo**
+   (va a la resistencia de 220 Ω).
+
+### ⚠️ Lo más importante del TCRT5000: el alcance
+
+| | |
+|---|---|
+| Alcance óptimo | **1 a 15 mm** |
+| Alcance máximo útil | ~20 mm |
+
+**No sirve para detectar una paleta a 20 cm.** Está hecho para seguidores de
+línea y ruedas encoder, no para proximidad a distancia.
+
+**Lo que sí funciona: cambiar la interacción a TOCAR.** Un círculo pintado en el
+panel y el jugador **apoya la paleta ahí**. Y tiene una ventaja real: **cero
+falsos positivos** de gente que pasa caminando, que era el problema del otro
+enfoque.
+
+### 🕳️ El truco de montaje: embutirlo
+
+```
+      ┌─────────────────┐  ← frente del panel
+      │   ╔═════════╗   │
+      │   ║ agujero ║   │  10-15 mm de profundidad
+      │   ║  Ø 8 mm ║   │  pintado de NEGRO por dentro
+      │   ╚════╤════╝   │
+      │     [TCRT]      │  ← el sensor al fondo
+      └─────────────────┘
+```
+
+Embutido al fondo de un agujero de 10-15 mm, **la luz ambiente no llega al
+fototransistor**: sólo entra lo que se refleja desde algo que está justo en la
+boca. Eso es lo que lo hace usable al sol, que es su gran debilidad.
+
+### Tipo 2 — Módulo FC-51 (con plaquita y potenciómetro)
+
+```
+   VCC ──► 5 V      GND ──► GND      OUT ──► A2 (A) / A3 (B)
+```
+Salida digital, alcance 2-30 cm regulable con el potenciómetro.
+⚠️ Se ciega con el sol directo.
+
+### Tipo 3 — HC-SR04 ultrasónico
+
+```
+   VCC  ──► 5 V       TRIG ──► A2 (A) / A3 (B)
+   GND  ──► GND       ECHO ──► D3 (A) / D5 (B)
+```
+Alcance 2-400 cm e **inmune al sol**. Es el único que funciona de verdad a
+20 cm al aire libre.
 
 ## Botones y buzzer
 

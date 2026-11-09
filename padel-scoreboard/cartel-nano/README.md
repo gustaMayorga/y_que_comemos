@@ -101,7 +101,17 @@ el partido si ese punto los había cerrado.
 ### Sensores de paleta
 
 **Izquierdo = equipo A · derecho = equipo B.** Siempre activos, en paralelo con
-el control.
+el control. Tres tipos soportados, se elige con `SENSOR_TIPO`:
+
+| | Alcance | Al sol | Interacción |
+|---|---|---|---|
+| **1 · TCRT5000** crudo | **5-15 mm** | ⚠️ sólo si va embutido | **apoyar** la paleta |
+| **2 · FC-51** módulo | 2-30 cm | ❌ se ciega | acercar |
+| **3 · HC-SR04** | 2-400 cm | ✅ inmune | acercar a 20 cm |
+
+Con el **TCRT5000** la lectura es analógica y **se autocalibra**: va siguiendo su
+propio nivel de reposo, así que se adapta a la luz que cambia durante el día.
+Al arrancar imprime las lecturas en reposo para que ajustes `TCRT_UMBRAL`.
 
 Antirrebote de **3 barreras** para que no cuente de más: hay que **sostener la
 paleta 250 ms**, después queda **bloqueado 2,5 s**, y además **hay que retirar
@@ -114,7 +124,8 @@ la paleta** para que vuelva a contar.
 ```c
 #define DEPORTE_INICIAL     0   // con cuál arranca
 #define BOTONES_CONTROL     3   // 3 o 4
-#define SENS_ACTIVO_BAJO true   // false si tu sensor da HIGH al detectar
+#define SENSOR_TIPO         1   // 1 TCRT5000 · 2 FC-51 · 3 HC-SR04
+#define TCRT_UMBRAL        90   // cuánto tiene que cambiar la lectura (0-1023)
 #define PUNTO_SAQUE_ANCHO   2   // tamaño del indicador de saque
 #define MILIAMPERES      2600   // el amperaje real de tu fuente
 #define BRILLO_DIA        200

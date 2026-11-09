@@ -19,9 +19,18 @@
 #define ORIGEN_ARRIBA  true
 
 #define PIN_LED           6
-#define PIN_SENS_A        2      // sensor de paleta equipo A (izquierda)
-#define PIN_SENS_B        3      // sensor de paleta equipo B (derecha)
-#define SENS_ACTIVO_BAJO true    // los IR de obstaculo dan LOW al detectar
+// --- SENSORES DE PALETA -----------------------------------------------------
+//  1 = TCRT5000 crudo  (analogico, hay que armarle el circuito, alcance 5-15 mm)
+//  2 = modulo IR de obstaculo FC-51 (salida digital, alcance 2-30 cm)
+//  3 = HC-SR04 ultrasonico (TRIG+ECHO, alcance 2-400 cm, inmune al sol)
+#define SENSOR_TIPO       1
+#define PIN_SENS_A       A2      // TCRT/FC-51: la salida. HC-SR04: el TRIG
+#define PIN_SENS_B       A3
+#define PIN_ECHO_A        3      // solo con HC-SR04
+#define PIN_ECHO_B        5
+#define SENS_ACTIVO_BAJO true    // solo con FC-51
+#define TCRT_UMBRAL      90      // cuanto tiene que cambiar la lectura (0-1023)
+#define PROX_CM          20      // solo con HC-SR04
 #define PIN_RF1           7      // +1 punto A
 #define PIN_RF2           8      // +1 punto B
 #define PIN_RF3           9      // deshacer / brillo
@@ -325,10 +334,46 @@ void festejo(uint8_t t){
 }
 
 /* ========================= ENTRADAS ========================= */
+// ---------------------------------------------------------------------------
+//  SENSOR DE PALETA
+//
+//  Con TCRT5000 la lectura es ANALOGICA y se AUTOCALIBRA: mientras no hay nada
+//  cerca, el sensor va promediando su propio nivel de reposo. Dispara cuando la
+//  lectura se aparta de ese reposo mas de TCRT_UMBRAL. Asi se adapta solo a la
+//  luz ambiente que cambia durante el dia, que es lo que hace fallar a los
+//  sensores infrarrojos con umbral fijo.
+//
+//  Encima va el antirrebote de 3 barreras: sostener, bloquear, y exigir que la
+//  paleta se retire antes de volver a contar.
+// ---------------------------------------------------------------------------
 struct Sensor {
-  uint8_t pin, st; uint32_t t0;
-  void begin(uint8_t p){ pin=p; pinMode(p,INPUT); st=0; t0=0; }
-  bool ve(){ const bool v=digitalRead(pin); return SENS_ACTIVO_BAJO?!v:v; }
+  uint8_t pin, eco, st; uint32_t t0; int16_t reposo;
+  void begin(uint8_t p, uint8_t e){
+    pin=p; eco=e; st=0; t0=0; reposo=-1;
+#if SENSOR_TIPO == 3
+    pinMode(pin,OUTPUT); digitalWrite(pin,LOW); pinMode(eco,INPUT);
+#else
+    pinMode(pin,INPUT);
+#endif
+  }
+  bool ve(){
+#if SENSOR_TIPO == 1
+    const int16_t v = analogRead(pin);
+    if(reposo < 0) reposo = v;                       // primera lectura
+    const bool cerca = abs(v - reposo) > TCRT_UMBRAL;
+    if(!cerca) reposo += (v - reposo) / 16;          // sigue la luz ambiente
+    return cerca;
+#elif SENSOR_TIPO == 2
+    const bool v = digitalRead(pin);
+    return SENS_ACTIVO_BAJO ? !v : v;
+#else
+    digitalWrite(pin,LOW);  delayMicroseconds(3);
+    digitalWrite(pin,HIGH); delayMicroseconds(10);
+    digitalWrite(pin,LOW);
+    const unsigned long d = pulseIn(eco,HIGH,12000UL);
+    return d && (uint16_t)(d*0.01715f) <= PROX_CM;
+#endif
+  }
   bool poll(){
     const uint32_t n=millis();
     switch(st){
@@ -338,6 +383,13 @@ struct Sensor {
       case 3: if(!ve()) st=0; break;
     }
     return false;
+  }
+  int16_t crudo(){
+#if SENSOR_TIPO == 1
+    return analogRead(pin);
+#else
+    return -1;
+#endif
   }
 };
 struct Boton {
@@ -409,7 +461,7 @@ void setup(){
   FastLED.setMaxPowerInVoltsAndMilliamps(5,MILIAMPERES);
   FastLED.setBrightness(BRILLOS[iBri]);
   limpiar(); mostrar();
-  sA.begin(PIN_SENS_A); sB.begin(PIN_SENS_B);
+  sA.begin(PIN_SENS_A, PIN_ECHO_A); sB.begin(PIN_SENS_B, PIN_ECHO_B);
   rf1.begin(PIN_RF1,true,BTN_LARGO_MS);
   rf2.begin(PIN_RF2,true,BTN_LARGO_MS);
   rf3.begin(PIN_RF3,true,BTN_LARGO_MS);
@@ -424,6 +476,11 @@ void setup(){
   Serial.print(F("  panel ")); Serial.print(ANCHO); Serial.print('x'); Serial.print(ALTO);
   Serial.print(F(" = ")); Serial.print(NUM_LEDS); Serial.println(F(" LEDs"));
   Serial.print(F("  RAM libre: ")); Serial.println(ramLibre());
+#if SENSOR_TIPO == 1
+  Serial.print(F("  sensores TCRT5000 en reposo: A="));
+  Serial.print(sA.crudo()); Serial.print(F("  B=")); Serial.println(sB.crudo());
+  Serial.println(F("  (acerca la paleta y mira cuanto cambia -> ajusta TCRT_UMBRAL)"));
+#endif
   mostrarDeporte();
   dibujar();
 }
