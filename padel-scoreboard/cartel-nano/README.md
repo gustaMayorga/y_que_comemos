@@ -236,6 +236,59 @@ o achicá el panel.
 
 ---
 
+## 🔧 Problemas al compilar
+
+### `No space left on device` en `AppData\Local\Temp`
+
+```
+fatal error: error writing to C:\Users\...\AppData\Local\Temp\ccKerTsI.s:
+No space left on device
+```
+
+**No es un error del código: el disco C: está lleno.** Arduino escribe todos los
+archivos intermedios en `%TEMP%`.
+
+**1. Vaciar el temporal** — `Win+R` → `%TEMP%` → Enter → seleccionar todo y
+borrar (lo que esté en uso se saltea solo). Suele liberar varios GB.
+
+**2. Vaciar la caché de compilación de Arduino** — en esa misma carpeta hay
+subcarpetas `arduino_build_*`, `arduino_cache_*` y `arduino-sketch-*`. Son las
+más grandes.
+
+**3. `cleanmgr`** (Liberador de espacio de Windows) y revisar que C: tenga al
+menos **5 GB libres**.
+
+### 🚀 La causa de fondo: la versión de FastLED
+
+Si en el error ves rutas como `src/fl/build/...` o `platforms/wasm/...`, tenés
+una **FastLED 3.9 o 3.10**. Esas versiones reorganizaron el código y compilan
+**cientos de archivos** —incluido el soporte de WebAssembly— que a un AVR no le
+sirven para nada. Resultado: compilación lentísima y temporales enormes.
+
+**Solución: bajar a FastLED 3.6.0.**
+
+> Arduino IDE → **Herramientas → Administrar bibliotecas** → buscar `FastLED` →
+> en el desplegable de versión elegir **3.6.0** → **Instalar**
+
+O por consola:
+
+```bash
+arduino-cli lib install FastLED@3.6.0
+```
+
+**Todo este proyecto usa sólo API que existe en 3.6.0**: `addLeds`,
+`setMaxPowerInVoltsAndMilliamps`, `setBrightness`, `show`, `clear`,
+`fill_solid`, `fadeToBlackBy`, `HeatColor`, `CHSV`, `sin8`, `cos8`, `sqrt16`,
+`random16`. No se pierde nada, y compila **varias veces más rápido**.
+
+### Otros errores frecuentes
+
+| Error | Qué pasa |
+|---|---|
+| `Hay poca memoria disponible` con menos de 300 bytes libres | el panel es muy grande para el Nano: bajá `UNDO_PASOS` o achicá `ALTO` |
+| `programmer is not responding` | ver `docs/06`: timing del reset, Processor equivocado o RX/TX sin cruzar |
+| `cannot open port COMx` | el puerto no existe: driver o cable. Ver `docs/06` |
+
 ## 🔜 Lo que queda para la versión profesional (ESP32)
 
 - Nombres de los equipos y panel más grande
