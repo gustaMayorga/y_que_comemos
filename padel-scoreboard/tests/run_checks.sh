@@ -60,13 +60,15 @@ for t in diag_nano diag_leds test_segmentos demo_digito demo_matriz test_cartel;
 done
 
 echo
-echo "== 4) compilacion del tanteador matriz =="
-d="$TMP/display"; mkdir -p "$d"
-cp display/display/display.ino "$d/sketch.cpp"
+echo "== 4) compilacion de los firmwares de panel =="
+for fw in display/display/display.ino cartel-nano/cartel-nano.ino; do
+d="$TMP/$(basename $fw .ino)"; mkdir -p "$d"
+cp "$fw" "$d/sketch.cpp"
 out=$(g++ -std=c++14 -Wall -Wextra -Wno-unused-parameter -I"$STUB" \
           "$d/sketch.cpp" "$STUB/main.cpp" -o "$d/sk" 2>&1 | head -6)
-if [ -n "$out" ]; then printf "  display      FALLO\n%s\n" "$out"; fail=1
-else                   printf "  display      OK\n"; fi
+if [ -n "$out" ]; then printf "  %-12s FALLO\n%s\n" "$(basename $fw .ino)" "$out"; fail=1
+else                   printf "  %-12s OK\n" "$(basename $fw .ino)"; fi
+done
 
 echo
 [ "$fail" = 0 ] && echo "TODO OK" || echo "HAY FALLOS"
