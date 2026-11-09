@@ -32,15 +32,22 @@ volatile uint8_t  nCrudo = 0;
 volatile bool     crudoListo = false;
 volatile bool     capturando = false;
 
-/* ---------- decodificador ---------- */
-volatile uint32_t codigo = 0;
+/* ---------- decodificador de LARGO VARIABLE ----------
+   No fija 24 bits: acepta de 8 a 72 e informa cuantos vinieron. Asi se puede
+   identificar que manda cada transmisor:
+     24 bits  -> EV1527 / PT2262 codigo fijo  (se puede aprender)
+     66 bits  -> HCS301 / KeeLoq codigo rodante (cambia en cada pulsacion)
+   El valor se guarda en dos mitades de 32 bits para no usar uint64 en la ISR. */
+#define BITS_MAX 72
+volatile uint32_t codHi = 0, codLo = 0;
+volatile uint8_t  codBits = 0;
 volatile uint16_t codBase = 0;
 volatile bool     codListo = false;
 volatile uint16_t nTramas = 0, nRuido = 0;
 volatile uint32_t nFlancos = 0;        // CUALQUIER cambio en el pin
 
 void isr(){
-  static uint32_t ult = 0, dato = 0;
+  static uint32_t ult = 0, hi = 0, lo = 0;
   static uint16_t alto = 0, base = 0;
   static uint8_t  bits = 0, sinc = 0;
   const uint32_t n = micros();
@@ -55,10 +62,11 @@ void isr(){
 
   if(digitalRead(PIN_DATA)){               // subida: termino un BAJO
     if(d > 2500 && d < 40000){             // sincronismo
-      if(sinc && bits == 24 && !codListo){
-        codigo = dato; codBase = base; codListo = true; nTramas++;
-      } else if(sinc && bits > 4) nRuido++;
-      bits = 0; dato = 0; base = 0; sinc = 1;
+      if(sinc && bits >= 8 && !codListo){
+        codHi = hi; codLo = lo; codBits = bits; codBase = base;
+        codListo = true; nTramas++;
+      } else if(sinc && bits > 2) nRuido++;
+      bits = 0; hi = 0; lo = 0; base = 0; sinc = 1;
       return;
     }
     if(!sinc) return;
@@ -68,14 +76,15 @@ void isr(){
     const uint16_t tot = alto + d;
     if(!base) base = tot;
     else if(tot < (uint16_t)(base/2) || tot > (uint16_t)(base*2)){ sinc=0; nRuido++; return; }
-    dato = (dato << 1) | (uno ? 1UL : 0UL);
-    if(++bits > 24) sinc = 0;
+    hi = (hi << 1) | (lo >> 31);
+    lo = (lo << 1) | (uno ? 1UL : 0UL);
+    if(++bits >= BITS_MAX) sinc = 0;
   } else alto = d;
 }
 
 char modo = 't';
 uint32_t tEst = 0;
-uint32_t ultCod = 0; uint8_t rep = 0; uint32_t tRep = 0;
+uint32_t ultLo = 0; uint8_t ultBits = 0, rep = 0; uint32_t tRep = 0;
 
 void ayuda(){
   Serial.println(F("\n--- diag_rf ---"));
@@ -109,6 +118,8 @@ void setup(){
   Serial.println(F("\n[diag_rf] escuchando en D2"));
   Serial.println(F("Con el llavero LEJOS no deberia salir casi nada."));
   Serial.println(F("Apreta un boton: la MISMA trama tiene que repetirse varias veces."));
+  Serial.println(F("Mira el campo bits: 24 = codigo fijo (grabable),"));
+  Serial.println(F("                    66 = codigo RODANTE (cambia siempre)."));
   ayuda();
   tEst = millis();
 }
@@ -125,15 +136,24 @@ void loop(){
 
   if(codListo){
     noInterrupts();
-    const uint32_t v=codigo; const uint16_t b=codBase; codListo=false;
+    const uint32_t hi=codHi, lo=codLo; const uint8_t nb=codBits;
+    const uint16_t b=codBase; codListo=false;
     interrupts();
-    if(v == ultCod && millis()-tRep < 400) rep++; else { ultCod=v; rep=1; }
+    const bool igual = (lo==ultLo && nb==ultBits && millis()-tRep < 500);
+    if(igual) rep++; else { ultLo=lo; ultBits=nb; rep=1; }
     tRep = millis();
     if(modo=='t'){
-      Serial.print(F("trama ")); Serial.print(v);
-      Serial.print(F("   bit base ")); Serial.print(b); Serial.print(F(" us"));
-      Serial.print(F("   repeticion ")); Serial.print(rep);
-      if(rep>=2) Serial.print(F("   <-- VALIDA"));
+      Serial.print(F("bits ")); Serial.print(nb);
+      Serial.print(F("  hi ")); Serial.print(hi);
+      Serial.print(F("  lo ")); Serial.print(lo);
+      Serial.print(F("  base ")); Serial.print(b); Serial.print(F("us"));
+      Serial.print(F("  rep ")); Serial.print(rep);
+      if(rep>=2){
+        Serial.print(F("  <-- REPITE"));
+        if(nb==24)      Serial.print(F("  [EV1527 fijo: SE PUEDE GRABAR]"));
+        else if(nb>=60) Serial.print(F("  [largo: posible codigo RODANTE]"));
+        else            Serial.print(F("  [largo raro]"));
+      }
       Serial.println();
     }
   }
