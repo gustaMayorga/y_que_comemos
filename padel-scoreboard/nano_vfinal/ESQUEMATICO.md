@@ -212,6 +212,42 @@ izquierda** — `TRIG → A2` y `ECHO → D3`. Los pines A3 y D5 quedan libres.
 Alcance 2-400 cm e **inmune al sol**. Es el único que funciona de verdad a
 20 cm al aire libre.
 
+### 🕳️ Cómo montarlo en la carcasa
+
+**El ultrasonido NO atraviesa el plástico.** A diferencia del RCWL-0516 (que es
+microondas y sí pasa), el HC-SR04 necesita **aire libre**: si lo encerrás del
+todo, rebota contra la propia tapa y lee siempre lo mismo.
+
+Pero **sí va montado en la carcasa**, y conviene: fijo apunta siempre igual y
+las lecturas son mucho más estables que con el sensor suelto.
+
+```
+      ┌──────────────────────────────┐  ← frente de la caja
+      │    ◯ Ø16          ◯ Ø16      │  dos agujeros, uno por cápsula
+      │   ╱                      ╲   │
+      │  │   [ ==== PCB ==== ]    │  │  ← la plaquita queda adentro
+      │   ╲                      ╱   │
+      └──────────────────────────────┘
+```
+
+1. **Dos agujeros de 16 mm**, la medida exacta de las cápsulas, a la separación
+   que ya tienen en la plaquita.
+2. Las cápsulas van **al ras o asomando 1-2 mm**. Si quedan hundidas, el borde
+   del agujero mete eco y arruina la lectura corta.
+3. ⚠️ **Desacoplalas mecánicamente.** Si las dos cápsulas quedan apretadas
+   contra la misma chapa rígida, el pulso de la que emite **viaja por el
+   material** hasta la que recibe y genera un eco falso: el sensor lee una
+   distancia chica constante y no detecta nada. Montalas con **pasacables de
+   goma**, gomaespuma o una gota de **silicona neutra** en vez de a presión.
+4. Dejá **2 cm libres de obstáculos** por delante: ese es su punto ciego.
+
+### 🌧️ Para la intemperie: JSN-SR04T
+
+El HC-SR04 común **no es estanco**: la humedad en las cápsulas lo degrada. Para
+un cartel que vive afuera existe el **JSN-SR04T** (~4 USD): una sola cápsula
+sellada con cable, **misma interfaz TRIG/ECHO** y el mismo código. Si el cartel
+va a tomar lluvia, es el que corresponde.
+
 ## Detector de presencia RCWL-0516 (opcional)
 
 ```
