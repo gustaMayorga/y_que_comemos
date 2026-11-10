@@ -241,6 +241,70 @@ las lecturas son mucho más estables que con el sensor suelto.
    goma**, gomaespuma o una gota de **silicona neutra** en vez de a presión.
 4. Dejá **2 cm libres de obstáculos** por delante: ese es su punto ciego.
 
+## ⚡ El error más grave: periféricos alimentados de OTRA fuente
+
+**Síntoma que lo delata:** desconectás el USB, conectás **solo** la fuente de
+los LED, y **el Arduino se enciende igual** unos segundos y después se apaga.
+
+Eso no es magia: es **alimentación parásita** por los diodos de protección de
+los pines.
+
+### Por qué pasa
+
+Cada pin del ATmega tiene dos diodos de protección contra descargas: uno a
+`GND` y **uno a `VCC`**. Ese segundo diodo conduce cuando el pin sube por
+encima de `VCC`.
+
+Si el HC-SR04 o el receptor RF están alimentados de la fuente de los LED, y el
+Nano está apagado, sus salidas (`ECHO`, `DATA`) siguen a 5 V. Entonces:
+
+```
+ fuente LEDs 5V ──> HC-SR04 ──ECHO──> pin D3 ──[diodo ESD]──> VCC del Nano
+                                                               ▲
+                                          el Nano se alimenta POR ACA
+```
+
+El Nano arranca con los **5-10 mA** que pasan por ese diodo, consume 20 mA,
+la tensión se derrumba y se apaga. Vuelve a cargarse y lo intenta de nuevo:
+**bucle de arranque**. Exactamente lo que viste.
+
+### Y por qué causa los reinicios aleatorios
+
+Con **todo** conectado (Nano por USB, LEDs por power bank) tenés dos rieles a
+tensiones distintas: USB a ~4.7 V y el de los LED entre 4.35 y 5.0 V **según
+lo que estén mostrando**. Cada vez que el riel del periférico supera al del
+Nano por ~0.5 V, el diodo ESD conduce e inyecta corriente en el `VCC` del
+Nano. Cuando baja, la corriente va al revés. **Eso varía con cada cuadro que
+dibujás**, y es impredecible por definición.
+
+### La regla
+
+> **Una señal lógica solo puede ir entre chips que comparten la MISMA
+> alimentación. Compartir la masa NO es suficiente.**
+
+El `VCC` del HC-SR04 y el del receptor RF tienen que salir del pin **`5V` del
+Nano**, no del riel de los LED. La única cosa que se comparte con el riel de
+los LED es **la masa** (y la línea de datos, que es una salida del Nano).
+
+### Verificación en 5 segundos
+
+Con solo la fuente de los LED conectada y el Nano encendiéndose solo:
+**desenchufá el cable de `VCC` del HC-SR04.** Si el Nano se apaga del todo,
+ya está: ése era el camino. Repetí con el `VCC` del RF.
+
+Con el tester, con todo conectado: medí entre el pin `5V` del Nano y el `+5V`
+del riel de los LED. **Más de 0.3 V de diferencia significa que hay corriente
+pasando por los diodos ESD.**
+
+### Lo que corresponde
+
+| Señal | De dónde sale su alimentación |
+|---|---|
+| HC-SR04 `VCC` | **Pin `5V` del Nano** |
+| RF `VCC` | **Pin `5V` del Nano** |
+| Tira LED `+5V` | Fuente de los LED (los 2 extremos) |
+| Todas las masas | Unidas en el negativo de la fuente de los LED |
+
 ## 🛡️ Endurecer el pin RESET (resistencia de 10 k)
 
 Una resistencia y nada más. Sirve si el cartel se reinicia solo sin que la
