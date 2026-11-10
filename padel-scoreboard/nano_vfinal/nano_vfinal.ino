@@ -62,10 +62,13 @@
 //  Receptor CRUDO de 433 MHz (MX-RM-5V / XY-MK-5V / RXB6): entrega el flujo de
 //  bits en bruto por UN pin, y el codigo del llavero se decodifica por software.
 //  Los botones se APRENDEN (ver GRABAR en el README).
-#define PIN_RF_DATA       2      // en el Nano tiene que ser D2 o D3 (interrupcion)
+#define PIN_RF_DATA       2      // -1 = sin RF (para bisecar un cuelgue)      // en el Nano tiene que ser D2 o D3 (interrupcion)
 #define RF_CONTROLES      2      // cuantos llaveros se pueden grabar
 #define RF_BOTONES        3      // botones por llavero (siempre 3)
-#define GRABAR_HOLD_MS 15000     // mantener el boton DEPORTE para grabar
+#define GRABAR_HOLD_MS 15000
+// Telemetria por serie cada tantos ms. 0 = apagada.
+// loops/s se desploma si algo le roba el CPU al loop: eso es un cuelgue.
+#define SALUD_MS       3000     // mantener el boton DEPORTE para grabar
 #define PIN_BUZZER       11      // -1 = sin buzzer (para bisecar un reset)
 #define PIN_DEPORTE      12      // corto = deporte | 15 s = grabar controles
 #define PIN_RESET        A1      // corto = brillo  | 2 s  = reset del partido
@@ -421,7 +424,10 @@ volatile bool     rfListo  = false;
 //   - todos los bits de una trama duran mas o menos lo mismo
 #define RF_DEBUG false        // true = imprime cada trama decodificada
 
+volatile uint16_t rfFlancos = 0;   // para la telemetria: flancos por segundo
+
 void rfISR(){
+  rfFlancos++;
   static uint32_t ult = 0, dato = 0;
   static uint16_t alto = 0, base = 0;
   static uint8_t  bits = 0, sinc = 0;
@@ -846,8 +852,12 @@ void setup(){
 #elif SENSOR_TIPO >= 1
   sA.begin(PIN_SENS_A, PIN_ECHO_A); sB.begin(PIN_SENS_B, PIN_ECHO_B);
 #endif
+#if PIN_RF_DATA >= 0
   pinMode(PIN_RF_DATA, INPUT);
   attachInterrupt(digitalPinToInterrupt(PIN_RF_DATA), rfISR, CHANGE);
+#else
+  Serial.println(F("  RF DESACTIVADO (PIN_RF_DATA -1)"));
+#endif
   rfCargar();
   bDep.begin(PIN_DEPORTE,false,GRABAR_HOLD_MS);
   bRst.begin(PIN_RESET,false,RESET_LARGO_MS);
@@ -888,6 +898,29 @@ void setup(){
 
 void loop(){
   vigilarVcc();
+
+  // --- telemetria: si loops/s se desploma, algo le esta robando el CPU -----
+#if SALUD_MS > 0
+  {
+    static uint32_t tS = 0;
+    static uint16_t nLoops = 0;
+    nLoops++;
+    const uint32_t dt = millis() - tS;
+    if(dt >= SALUD_MS){
+      uint16_t f;
+      noInterrupts(); f = rfFlancos; rfFlancos = 0; interrupts();
+      Serial.print(F("[salud] loops/s "));
+      Serial.print((uint16_t)((uint32_t)nLoops * 1000UL / dt));
+      Serial.print(F("  rf/s "));
+      Serial.print((uint16_t)((uint32_t)f * 1000UL / dt));
+      mostrarVolts(F("  Vcc "), leerVcc());
+      mostrarVolts(F("  min "), vccMin);
+      Serial.println();
+      nLoops = 0; tS = millis();
+    }
+  }
+#endif
+
   bDep.poll(); bRst.poll();
   dormirSiNadie();
   if(durmiendo){                      // en reposo solo se escuchan las entradas

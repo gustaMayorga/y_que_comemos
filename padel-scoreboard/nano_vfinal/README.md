@@ -372,6 +372,58 @@ que había **justo antes** del reset que te dejó a ciegas:
 así que el valor absoluto puede estar corrido. Comparalo **una vez** con el
 tester en reposo y quedate con las variaciones, que ésas sí son exactas.
 
+### Se cuelga (no se reinicia): mirá `loops/s`
+
+Un cuelgue y un reset son problemas distintos. Si se **reinicia**, `reinicios`
+sube. Si se **cuelga**, el micro sigue vivo pero el loop no avanza, y ahí el
+medidor de Vcc tampoco sirve: `vccMin` solo se actualiza mientras el loop
+corre. Si el loop se detuvo, no mide nada.
+
+Por eso ahora hay telemetría cada 3 segundos:
+
+```
+[salud] loops/s 4120  rf/s 2400  Vcc 4.708 V  min 4.555 V
+```
+
+| `loops/s` | Qué significa |
+|---|---|
+| **miles** | Normal |
+| **decenas** | Algo le está robando el CPU |
+| **0, o la línea deja de salir** | Cuelgue de verdad |
+
+Y `rf/s` dice **quién** se lo roba. El receptor MX-RM-5V es
+**superregenerativo**: sin señal, su salida es ruido amplificado, y entrega
+flancos permanentemente. Cada flanco llama a la ISR, y la ISR tarda unos
+microsegundos. Las cuentas:
+
+| `rf/s` | CPU que se come la ISR |
+|---|---|
+| 2.000 | ~2 % — inofensivo |
+| 50.000 | ~40 % — el cartel va lento |
+| 150.000 | **~100 % — el loop no corre nunca: parece colgado** |
+
+El ruido ambiente cambia todo el tiempo (un portón, un motor, una fuente
+conmutada, **tu propia fuente de los LEDs**), así que esto aparece y
+desaparece sin motivo aparente. Es exactamente el síntoma de "a veces se
+bloquea".
+
+**Prueba decisiva:** `#define PIN_RF_DATA -1`. Si deja de colgarse, era la ISR
+del RF ahogando al loop. Las soluciones, en orden: ponerle **antena** de
+17.3 cm al receptor (un receptor sin antena es el que más ruido entrega),
+alejarlo de la fuente conmutada y de la tira, o pasar a un
+**superheterodino RXB6**, que tiene squelch y no entrega nada sin señal.
+
+Para desactivar la telemetría cuando ya no la necesites: `#define SALUD_MS 0`.
+
+### Lo que NO es
+
+- **El cristal.** Si el oscilador estuviera mal, el baud rate se correría y el
+  monitor serie mostraría basura. Texto legible = oscilador dentro del 2 %.
+- **`millis()` perdiendo tiempo por FastLED.** Es cierto que `show()` apaga las
+  interrupciones 8.3 ms para 276 LEDs, y en ese rato `millis()` no cuenta. Pero
+  el loop solo redibuja cuando algo cambia, así que en reposo no pasa.
+  Con aviso de punto titilando son 8.3 ms cada 150 ms: un 5 %, irrelevante.
+
 ### Bisecar: apagar cosas hasta que pare
 
 Dos interruptores en el config, para aislar la causa en dos cargas:
@@ -379,6 +431,7 @@ Dos interruptores en el config, para aislar la causa en dos cargas:
 | Poné | Qué apaga | Si los resets paran, era |
 |---|---|---|
 | `#define PIN_BUZZER -1` | El buzzer, entero | El buzzer: pico inductivo o exceso de corriente en el pin |
+| `#define PIN_RF_DATA -1` | El receptor RF y su interrupción | La ISR del RF ahogando al loop (mirá `rf/s` primero) |
 | `#define SENSOR_TIPO 0` | Los sensores | El HC-SR04 o su cableado |
 
 El buzzer es el primer sospechoso cuando el reset llega **justo después de un
