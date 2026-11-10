@@ -37,6 +37,7 @@ inline unsigned long micros(){return 0;}
 #define FALLING 3
 inline int  digitalPinToInterrupt(int p){return p;}
 inline void attachInterrupt(int,void(*)(void),int){}
+inline void detachInterrupt(int){}
 inline void noInterrupts(){}
 inline void interrupts(){}
 inline unsigned long pulseIn(uint8_t,uint8_t,unsigned long){return 0;}

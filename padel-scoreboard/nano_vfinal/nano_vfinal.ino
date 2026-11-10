@@ -68,7 +68,16 @@
 #define GRABAR_HOLD_MS 15000
 // Telemetria por serie cada tantos ms. 0 = apagada.
 // loops/s se desploma si algo le roba el CPU al loop: eso es un cuelgue.
-#define SALUD_MS       3000     // mantener el boton DEPORTE para grabar
+#define SALUD_MS       3000
+// Watchdog: si el micro se cuelga, se reinicia solo a los 8 s.
+// NO tapa el problema: el cartel vuelve SOLO, sin tocar el boton, y eso
+// mismo es la prueba de que se colgo. Si tu bootloader es viejo y un reset
+// por watchdog te deja la placa en bucle, cortale la corriente (un corte
+// limpia el flag) y poné WATCHDOG false.
+#define WATCHDOG       true
+// Flancos/s de RF a partir de los cuales la ISR se desactiva sola.
+// Normal es 2000-4000. A 50000 la ISR ya se come ~35% del CPU.
+#define RF_TORMENTA    50000UL     // mantener el boton DEPORTE para grabar
 #define PIN_BUZZER       11      // -1 = sin buzzer (para bisecar un reset)
 #define PIN_DEPORTE      12      // corto = deporte | 15 s = grabar controles
 #define PIN_RESET        A1      // corto = brillo  | 2 s  = reset del partido
@@ -365,7 +374,12 @@ void vigilarVcc();               // definida mas abajo, junto a leerVcc()
 // momento de mas riesgo. esperar() hace lo mismo pero sigue vigilando.
 void esperar(uint16_t ms){
   const uint32_t t0 = millis();
-  while(millis() - t0 < ms) vigilarVcc();
+  while(millis() - t0 < ms){
+    vigilarVcc();
+#if defined(__AVR__) && WATCHDOG
+    wdt_reset();
+#endif
+  }
 }
 
 void bip(uint16_t f, uint16_t ms){
@@ -425,6 +439,7 @@ volatile bool     rfListo  = false;
 #define RF_DEBUG false        // true = imprime cada trama decodificada
 
 volatile uint16_t rfFlancos = 0;   // para la telemetria: flancos por segundo
+volatile bool     rfTormenta = false;
 
 void rfISR(){
   rfFlancos++;
@@ -432,6 +447,21 @@ void rfISR(){
   static uint16_t alto = 0, base = 0;
   static uint8_t  bits = 0, sinc = 0;
   const uint32_t n = micros();
+
+  // Guardia de tormenta. Si el receptor entrega ruido a mucha velocidad, esta
+  // ISR se come todo el CPU y el loop no corre nunca mas: el cartel parece
+  // colgado. Entonces la ISR se desactiva a si misma y avisa.
+  {
+    static uint16_t tCnt = 0; static uint32_t tVent = 0;
+    if(++tCnt >= 4000u){
+      if(n - tVent < (4000UL*1000000UL/RF_TORMENTA)){
+        rfTormenta = true;
+        detachInterrupt(digitalPinToInterrupt(PIN_RF_DATA));
+      }
+      tCnt = 0; tVent = n;
+    }
+  }
+
   const uint16_t d = (uint16_t)(n - ult);
   ult = n;
 
@@ -788,7 +818,11 @@ uint16_t leerVcc(){
   ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);   // Vbg contra AVcc
   delayMicroseconds(350);                                   // que se estabilice
   ADCSRA |= _BV(ADSC);
-  while(ADCSRA & _BV(ADSC)) { }
+  // Una conversion son ~340 vueltas. El tope evita que un ADC que no
+  // responde cuelgue el cartel para siempre esperando aca.
+  uint16_t guarda = 0;
+  while((ADCSRA & _BV(ADSC)) && ++guarda < 60000u) { }
+  if(guarda >= 60000u) return 0;
   const uint16_t cuentas = ADC;
   return cuentas ? (uint16_t)(1125300UL / cuentas) : 0;      // 1.1 * 1023 * 1000
 #else
@@ -902,10 +936,30 @@ void setup(){
   mostrarDeporte();
   dibujar();
   tSalud = millis();             // la telemetria mide desde ACA, no desde el boot
+#if defined(__AVR__) && WATCHDOG
+  wdt_enable(WDTO_8S);           // ultimo paso: ya paso todo el arranque lento
+#endif
 }
 
 void loop(){
+#if defined(__AVR__) && WATCHDOG
+  wdt_reset();
+#endif
   vigilarVcc();
+
+  if(rfTormenta){                // la ISR se apago sola por exceso de ruido
+    static uint32_t tRe = 0;
+    if(!tRe){
+      Serial.println(F("[rf] TORMENTA de ruido: interrupcion desactivada 10 s"));
+      tRe = millis();
+    } else if(millis() - tRe > 10000){
+#if PIN_RF_DATA >= 0
+      attachInterrupt(digitalPinToInterrupt(PIN_RF_DATA), rfISR, CHANGE);
+#endif
+      rfTormenta = false; tRe = 0;
+      Serial.println(F("[rf] interrupcion reactivada"));
+    }
+  }
   { static uint32_t tV=0; const uint32_t n=millis();
     if(n - tV >= 1000){ tV = n; vivoMs = n; } }   // sobrevive al reset
 

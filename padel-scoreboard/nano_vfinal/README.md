@@ -372,6 +372,48 @@ que había **justo antes** del reset que te dejó a ciegas:
 así que el valor absoluto puede estar corrido. Comparalo **una vez** con el
 tester en reposo y quedate con las variaciones, que ésas sí son exactas.
 
+### Se clavó con `loops/s` normal en la última línea
+
+```
+[salud] loops/s 1593  rf/s 3158  Vcc 4.728 V  min 4.555 V
+                                          ← y nada mas, hubo que apretar RESET
+```
+
+El loop corría a full 3 segundos antes de morir y paró de golpe. Eso es un
+**cuelgue**, no un reset, y la telemetría no lo puede reportar: **sale del
+loop**. Si el loop se detiene, la última línea que ves es siempre normal.
+
+Hay tres guardias para eso, y las tres **avisan** en vez de tapar:
+
+**1. Watchdog (`WATCHDOG true`).** Si el micro se cuelga, se reinicia solo a
+los 8 s. No tapa nada: el cartel **vuelve solo, sin tocar el botón**, y eso
+mismo es la prueba de que se colgó. Mirá `estuvo vivo N s` para el patrón.
+Se arma como último paso del `setup()`, después de todo el arranque lento.
+
+> Si tu bootloader es viejo, un reset por watchdog puede dejar la placa en
+> bucle. **Se recupera cortándole la corriente** (un corte limpia el flag).
+> Si te pasa, poné `WATCHDOG false`.
+
+**2. Guardia de tormenta de RF.** El punto ciego real: si el receptor entrega
+ruido muy rápido, la ISR se come todo el CPU, **el loop no corre nunca más** y
+el cartel parece colgado — y la telemetría no lo puede denunciar porque también
+sale del loop. Ahora **la ISR se vigila a sí misma**: si pasa de
+`RF_TORMENTA` flancos/s (50.000 por defecto, contra 2.000-4.000 normales) se
+desactiva sola, avisa y se reactiva a los 10 s.
+
+```
+[rf] TORMENTA de ruido: interrupcion desactivada 10 s
+[rf] interrupcion reactivada
+```
+
+Si ves eso, el culpable del cuelgue era el RF y la solución es la antena de
+17.3 cm, alejarlo de la fuente, o un RXB6 superheterodino.
+
+**3. Tope en la espera del ADC.** `leerVcc()` esperaba la conversión con un
+`while` sin salida. Una conversión son ~340 vueltas; ahora corta a las 60.000 y
+devuelve 0. Un ADC que no responde ya no puede colgar el cartel — irónico,
+porque era mi propio medidor el que podía provocar lo que estaba midiendo.
+
 ### Reset instantáneo con todo lo interno sano → mirá el pin RESET
 
 Si la telemetría muestra esto justo antes de un reinicio:
