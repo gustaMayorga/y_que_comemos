@@ -32,6 +32,7 @@
 //        paleta CERCA  -> equipo A        paleta LEJOS -> equipo B
 //      No se puede detectar el sentido del movimiento con un solo sensor
 //      (mide distancia, no angulo), pero por zonas funciona perfecto.
+// 0 = NINGUNO: para bisecar un reset. Deja solo los botones y el RF.
 #define SENSOR_TIPO       4
 //
 //  OJO: la A y la B son el EQUIPO, no una pata del modulo. Cada HC-SR04 tiene
@@ -65,7 +66,7 @@
 #define RF_CONTROLES      2      // cuantos llaveros se pueden grabar
 #define RF_BOTONES        3      // botones por llavero (siempre 3)
 #define GRABAR_HOLD_MS 15000     // mantener el boton DEPORTE para grabar
-#define PIN_BUZZER       11
+#define PIN_BUZZER       11      // -1 = sin buzzer (para bisecar un reset)
 #define PIN_DEPORTE      12      // corto = deporte | 15 s = grabar controles
 #define PIN_RESET        A1      // corto = brillo  | 2 s  = reset del partido
 #define PIN_LED_PLACA    13      // el LED de la propia placa, acompana los bips
@@ -355,14 +356,29 @@ void dibujar(){
 /* ========================= SONIDO Y FESTEJOS ========================= */
 // Los bips prenden tambien el LED de la placa, para poder grabar los controles
 // mirando el Arduino aunque el panel este tapado.
+void vigilarVcc();               // definida mas abajo, junto a leerVcc()
+
+// delay() es ciego: mientras dura no se muestrea Vcc, y justo el bip es el
+// momento de mas riesgo. esperar() hace lo mismo pero sigue vigilando.
+void esperar(uint16_t ms){
+  const uint32_t t0 = millis();
+  while(millis() - t0 < ms) vigilarVcc();
+}
+
 void bip(uint16_t f, uint16_t ms){
-  digitalWrite(PIN_LED_PLACA,HIGH); tone(PIN_BUZZER,f,ms); delay(ms);
+  digitalWrite(PIN_LED_PLACA,HIGH);
+#if PIN_BUZZER >= 0
+  tone(PIN_BUZZER,f,ms);
+#else
+  (void)f;
+#endif
+  esperar(ms);
   digitalWrite(PIN_LED_PLACA,LOW);
 }
 void flash(uint8_t t, const CRGB& c){
   const int16_t x0 = t?ANCHO-11:0;
   for(int16_t y=0;y<ALTO;y++) for(int16_t x=x0;x<x0+11;x++) pix(x,y,c);
-  mostrar(); delay(110); dibujar();
+  mostrar(); esperar(110); dibujar();
 }
 void ola(uint8_t vueltas){
   for(uint16_t t=0;t<(uint16_t)vueltas*110;t+=6){
@@ -595,7 +611,12 @@ uint8_t sensorUnico(){
   switch(st){
     case 0: if(z){ st=1; zona=z; t0=n; } break;
     case 1: if(z != zona) st=0;
-            else if(n-t0 >= SENS_SOSTENER_MS){ st=2; t0=n; return zona; }
+            else if(n-t0 >= SENS_SOSTENER_MS){
+              st=2; t0=n;
+              Serial.print(F("[sens] ")); Serial.print(medirCm(PIN_SENS_A,PIN_ECHO_A));
+              Serial.print(F(" cm -> ")); Serial.println(zona==1?'A':'B');
+              return zona;
+            }
             break;
     case 2: if(n-t0 >= SENS_BLOQUEO_MS) st=3; break;
     case 3: if(!z) st=0; break;            // hay que retirar la paleta
@@ -658,7 +679,7 @@ void mostrarDeporte(){
   glifo57(g, 2, (ALTO-7)/2, C_SETS);
   glifo57(g, ANCHO-7, (ALTO-7)/2, C_SETS);
   dig35(deporte, ANCHO/2-1, ALTO-5, C_JUEGOS);
-  mostrar(); delay(1300);
+  mostrar(); esperar(1300);
 }
 void cambiarDeporte(){
   deporte=(uint8_t)((deporte+1)%N_DEPORTES);
@@ -726,7 +747,7 @@ void grabarControles(){
   rfProxCtrl = (uint8_t)((ctrl+1) % RF_CONTROLES);
   rfGuardar();
   Serial.println(F("[grabar] listo"));
-  limpiar(); mostrar(); delay(300);
+  limpiar(); mostrar(); esperar(300);
   redib = true;
 }
 
@@ -808,7 +829,9 @@ void setup(){
   wdt_disable();                 // por si quedo un watchdog armado dando vueltas
 #endif
   Serial.begin(BAUD);
+#if PIN_BUZZER >= 0
   pinMode(PIN_BUZZER,OUTPUT);
+#endif
   FastLED.addLeds<WS2812B,PIN_LED,GRB>(leds,NUM_LEDS);
   FastLED.setMaxPowerInVoltsAndMilliamps(5,MILIAMPERES);
   FastLED.setBrightness(0);      // apaga la tira YA, antes de cualquier otra cosa
@@ -820,7 +843,7 @@ void setup(){
   tActividad=millis();
 #if SENSOR_TIPO == 4
   pinMode(PIN_SENS_A,OUTPUT); digitalWrite(PIN_SENS_A,LOW); pinMode(PIN_ECHO_A,INPUT);
-#else
+#elif SENSOR_TIPO >= 1
   sA.begin(PIN_SENS_A, PIN_ECHO_A); sB.begin(PIN_SENS_B, PIN_ECHO_B);
 #endif
   pinMode(PIN_RF_DATA, INPUT);
@@ -845,7 +868,9 @@ void setup(){
     Serial.print(F("  controles grabados: ")); Serial.print(n/RF_BOTONES);
     Serial.print(F(" de ")); Serial.println(RF_CONTROLES);
     if(!n) Serial.println(F("  -> manten el boton DEPORTE 15 s para grabar")); }
-#if SENSOR_TIPO == 4
+#if SENSOR_TIPO == 0
+  Serial.println(F("  sensores DESACTIVADOS (SENSOR_TIPO 0)"));
+#elif SENSOR_TIPO == 4
   Serial.print(F("  1 sensor, 2 zonas: A "));
   Serial.print(ZONA_A_MIN); Serial.print('-'); Serial.print(ZONA_A_MAX);
   Serial.print(F(" cm | B ")); Serial.print(ZONA_B_MIN); Serial.print('-');
@@ -899,7 +924,7 @@ void loop(){
 
 #if SENSOR_TIPO == 4
   { const uint8_t z = sensorUnico(); if(z) onPunto(z-1); }
-#else
+#elif SENSOR_TIPO >= 1
   if(sA.poll()) onPunto(0);
   if(sB.poll()) onPunto(1);
 #endif

@@ -372,6 +372,50 @@ que había **justo antes** del reset que te dejó a ciegas:
 así que el valor absoluto puede estar corrido. Comparalo **una vez** con el
 tester en reposo y quedate con las variaciones, que ésas sí son exactas.
 
+### Bisecar: apagar cosas hasta que pare
+
+Dos interruptores en el config, para aislar la causa en dos cargas:
+
+| Poné | Qué apaga | Si los resets paran, era |
+|---|---|---|
+| `#define PIN_BUZZER -1` | El buzzer, entero | El buzzer: pico inductivo o exceso de corriente en el pin |
+| `#define SENSOR_TIPO 0` | Los sensores | El HC-SR04 o su cableado |
+
+El buzzer es el primer sospechoso cuando el reset llega **justo después de un
+punto**. Si es magnético (una bobina), engancharlo directo a un pin del Nano
+es pedirle 30-80 mA cuando el pin da 40 mA como máximo, y cada ciclo genera un
+pico inductivo. Necesita un **1N4148 en paralelo** (cátodo al positivo) y, si
+es de los que consumen, un transistor. Si es piezoeléctrico es capacitivo y
+mucho más benigno.
+
+### El punto ciego del medidor de Vcc
+
+`vigilarVcc()` se llama una vez por vuelta del loop. **Durante un `delay()` no
+se muestrea nada**, y el bip era justo un `delay(50)`. O sea: un `minimo
+visto` sano no descartaba la alimentación, porque el medidor estaba ciego en
+el momento exacto de más riesgo.
+
+Ya está arreglado: `bip()` y todas las esperas largas usan `esperar()`, que
+sigue midiendo mientras espera. Si ahora `minimo visto` sigue arriba de
+4.7 V con resets, ahí sí el problema **no es la tensión**.
+
+Lo que el medidor **nunca** va a ver, por más que muestree, es un pico de
+microsegundos: el ADC tarda ~100 µs por conversión. Para eso hace falta un
+osciloscopio, o directamente descartar por bisección.
+
+### Qué disparó el sensor
+
+Cuando un sensor suma un punto ahora dice a qué distancia vio algo:
+
+```
+[sens] 12 cm -> A
+pt A  j 0-0  s 0-0
+```
+
+Si los centímetros son plausibles, el sensor funciona y lo que falta es
+reacomodar las zonas. Si imprime valores saltando por todos lados, es
+cableado o el `ECHO` al aire.
+
 ### Sobre poner un watchdog
 
 Se podría, y recuperaría solo de los cuelgues. **No lo activé a propósito**, por
