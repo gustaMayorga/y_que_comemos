@@ -241,6 +241,57 @@ las lecturas son mucho más estables que con el sensor suelto.
    goma**, gomaespuma o una gota de **silicona neutra** en vez de a presión.
 4. Dejá **2 cm libres de obstáculos** por delante: ese es su punto ciego.
 
+## 🛡️ Endurecer el pin RESET (resistencia de 10 k)
+
+Una resistencia y nada más. Sirve si el cartel se reinicia solo sin que la
+tensión baje ni el loop se frene.
+
+### Qué hace
+
+El pin `RESET` del ATmega tiene un pull-up **interno de 30 a 50 kΩ**: flojísimo.
+Con eso, cualquier ruido acoplado lo puede llevar por debajo del umbral y
+resetear el micro. Un pull-up externo de **10 kΩ** en paralelo deja la
+combinación en ~8 kΩ: entre 4 y 6 veces más difícil de mover.
+
+### Dónde va
+
+En el Nano, los pines **`5V` y `RESET` están uno al lado del otro**, en el
+extremo del `VIN`. La resistencia se puentea directo entre esos dos:
+
+```
+   ... A7   5V   RESET   GND   VIN      ← fila de pines del Nano
+            │      │
+            └─[10k]┘
+```
+
+Sin polaridad, no hay forma de ponerla al revés.
+
+### Por qué no rompe la programación
+
+El IDE resetea la placa por la línea **DTR**, que llega al `RESET` a través de
+un capacitor de **100 nF**. Con 10 kΩ la constante de tiempo es
+`10k × 100n = 1 ms`, y el ATmega necesita que el pulso dure **2.5 µs**. Sobra
+400 veces. **La placa se sigue programando normal.**
+
+- Si queda **todavía sensible**: bajá a **4.7 kΩ** (τ = 0.5 ms, sigue sobrando).
+- **No bajes de 1 kΩ**: el conversor USB tiene que poder hundir ese pin.
+- ⛔ **Nunca un capacitor de `RESET` a `GND`.** Eso sí impide programar.
+
+### ⚠️ Antes de la resistencia: revisá dónde está tu botón
+
+El botón de **reset del partido** va al pin **`A1`**, que es una entrada
+digital común. **No al pin `RST`.**
+
+Es una confusión fácil, porque el pin se llama igual que la función. Si por
+error quedó en `RST`:
+
+- cada pulsación **reinicia la placa** en vez de reiniciar el partido, y
+- el cable del botón se convierte en una **antena conectada directo al pin
+  RESET**, que es exactamente el síntoma que estamos persiguiendo.
+
+Lo mismo para el cable de `A1`: cuanto más corto, mejor. Si tiene que ser
+largo, **trenzalo con un cable de masa**.
+
 ### 🖨️ Carcasa imprimible
 
 Hay un modelo parametrico listo en `3d/carcasa_hcsr04.scad`, con la guia de
