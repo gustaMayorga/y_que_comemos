@@ -35,6 +35,34 @@ arduino-cli upload  --fqbn arduino:avr:nano -p /dev/ttyUSB0 nano_vfinal
 - Deshacer de 6 pasos que restaura el estado completo
 - Festejo con fuegos artificiales y `GANA A` / `GANA B` en texto corrido
 
+## 🖼️ Íconos al cambiar de deporte
+
+Al cambiar de deporte el panel muestra el **ícono** del deporte 1.1 s y después
+pasa el **nombre corriendo**. Cada uno con su color:
+
+| Deporte | Ícono | Color |
+|---|---|---|
+| Padel (oro y ventaja) | Paleta de padel, con los agujeros | Celeste |
+| Tenis (3 y 5 sets) | Raqueta con el encordado | Amarillo verdoso |
+| Voley | Pelota con las bandas curvas | Amarillo |
+| Ping pong | Paleta maciza con mango largo | Rojo rosado |
+| Básquet | Pelota con las líneas en cruz | Naranja |
+| Fútbol | Pelota con el pentágono central | Blanco suave |
+
+Son de 11 × 11 y viven en `PROGMEM`: **no gastan nada de RAM**, solo ~380
+bytes de flash. Los dos padel comparten paleta y los dos tenis comparten
+raqueta, así que son 6 dibujos para 8 deportes. Por eso queda además el
+**número chico a la derecha**: sin él no se distinguiría padel-oro de
+padel-ventaja cuando el nombre está apagado.
+
+Si el nombre corriendo te resulta lento: `#define DEPORTE_NOMBRE false`, y
+queda solo el ícono.
+
+Para dibujar los tuyos, los íconos son `uint16_t` por fila con el **bit 0 en la
+columna de la izquierda**. El generador que los convierte desde dibujos en
+texto está en `tools/` — es más fácil dibujarlos con `#` y `.` que escribir
+hexadecimal a mano.
+
 ## 🏅 Los 8 deportes
 
 Se cambia con un **pulso corto en el botón de deporte (D12)**. Muestra la letra

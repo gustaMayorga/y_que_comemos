@@ -125,6 +125,9 @@
    Si asi NO se reinicia, volve a conectar UNA cosa por vez, 15 min cada una.
    Si asi SI se reinicia, el problema esta en ese triangulo y nada mas.      */
 #define MODO_MINIMO  false
+// Al cambiar de deporte, despues del icono pasa el nombre corriendo.
+// false = solo el icono (mas rapido).
+#define DEPORTE_NOMBRE true
 
 #if MODO_MINIMO
   #undef  SENSOR_TIPO
@@ -174,6 +177,30 @@ const Reglas TABLA[] PROGMEM = {
 #define N_DEPORTES 8
 // glifo de 5x7 que se muestra al cambiar de modo
 const uint8_t DEP_LETRA[N_DEPORTES] PROGMEM = {14,14,31,31,34,24,13,17}; // P P t t U M b F
+
+/* ===================== ICONOS DE DEPORTE =====================
+   11 x 11, bit 0 = columna de la izquierda. Viven en PROGMEM: no gastan RAM.
+   Los dos padel comparten paleta y los dos tenis comparten raqueta.         */
+#define ICO_ANCHO 11
+#define ICO_ALTO  11
+const uint16_t ICONOS[][ICO_ALTO] PROGMEM = {
+/* 0 paleta de padel    */ {0x0F8,0x1FC,0x356,0x2AA,0x356,0x2AA,0x356,0x1FC,0x070,0x070,0x070},
+/* 1 raqueta de tenis   */ {0x0F8,0x18C,0x252,0x2FA,0x252,0x2FA,0x252,0x18C,0x050,0x050,0x070},
+/* 2 paleta ping pong   */ {0x0F8,0x1FC,0x3FE,0x3FE,0x3FE,0x3FE,0x1FC,0x0F8,0x070,0x070,0x070},
+/* 3 pelota de basquet  */ {0x0F8,0x326,0x222,0x421,0x421,0x5FD,0x421,0x421,0x222,0x326,0x0F8},
+/* 4 pelota de voley    */ {0x0F8,0x316,0x2D2,0x451,0x45D,0x745,0x445,0x451,0x2D2,0x316,0x0F8},
+/* 5 pelota de futbol   */ {0x0F8,0x326,0x272,0x4F9,0x5FD,0x4F9,0x471,0x489,0x28A,0x306,0x0F8},
+};
+//                         padel oro, padel vent, tenis, tenis5, voley, ping, basq, futbol
+const uint8_t DEP_ICONO[N_DEPORTES] PROGMEM = { 0, 0, 1, 1, 4, 2, 3, 5 };
+const uint8_t ICO_COLOR[][3] PROGMEM = {
+/* 0 padel    */ {  0,200,255},   // celeste, como la cancha
+/* 1 tenis    */ {190,255,  0},   // amarillo verdoso de la pelota
+/* 2 pingpong */ {255, 40, 80},
+/* 3 basquet  */ {255,110,  0},   // naranja
+/* 4 voley    */ {255,200,  0},
+/* 5 futbol   */ {200,200,200},   // blanco suave: el blanco puro come mucho
+};
 uint8_t deporte = DEPORTE_INICIAL;
 Reglas R;
 void cargarReglas(){ memcpy_P(&R, &TABLA[deporte], sizeof(R)); }
@@ -218,6 +245,30 @@ uint8_t idx57(char c){
   if(c>='0'&&c<='9') return 2+c-'0';
   if(c>='A'&&c<='Z') return 12+c-'A';
   return 0;
+}
+void icono(uint8_t idx, int16_t x0, int16_t y0, const CRGB& c){
+  for(uint8_t f=0; f<ICO_ALTO; f++){
+    const uint16_t fila = pgm_read_word(&ICONOS[idx][f]);
+    for(uint8_t x=0; x<ICO_ANCHO; x++)
+      if(fila & (1u << x)) pix(x0 + x, y0 + f, c);
+  }
+}
+CRGB colorIcono(uint8_t idx){
+  return CRGB(pgm_read_byte(&ICO_COLOR[idx][0]),
+              pgm_read_byte(&ICO_COLOR[idx][1]),
+              pgm_read_byte(&ICO_COLOR[idx][2]));
+}
+const __FlashStringHelper* nombreDeporte(uint8_t d){
+  switch(d){
+    case 0: return F("PADEL ORO");
+    case 1: return F("PADEL VENTAJA");
+    case 2: return F("TENIS");
+    case 3: return F("TENIS 5 SETS");
+    case 4: return F("VOLEY");
+    case 5: return F("PING PONG");
+    case 6: return F("BASQUET");
+    default:return F("FUTBOL");
+  }
 }
 void glifo57(uint8_t g, int16_t x0, int16_t y0, const CRGB& c){
   const uint16_t b = (uint16_t)g*5;
@@ -753,12 +804,17 @@ int ramLibre(){
 #endif
 }
 void mostrarDeporte(){
+  const uint8_t ic = pgm_read_byte(&DEP_ICONO[deporte]);
+  const CRGB    c  = colorIcono(ic);
   limpiar();
-  const uint8_t g=pgm_read_byte(&DEP_LETRA[deporte]);
-  glifo57(g, 2, (ALTO-7)/2, C_SETS);
-  glifo57(g, ANCHO-7, (ALTO-7)/2, C_SETS);
-  dig35(deporte, ANCHO/2-1, ALTO-5, C_JUEGOS);
-  mostrar(); esperar(1300);
+  icono(ic, (ANCHO-ICO_ANCHO)/2, (ALTO-ICO_ALTO)/2, c);
+  // el numero chico a la derecha: los dos padel y los dos tenis comparten
+  // icono, asi que sin esto no se distinguen cuando el nombre esta apagado
+  dig35(deporte, ANCHO-3, ALTO-5, C_JUEGOS);
+  mostrar(); esperar(1100);
+#if DEPORTE_NOMBRE
+  corre(nombreDeporte(deporte), c, 1);
+#endif
 }
 void cambiarDeporte(){
   deporte=(uint8_t)((deporte+1)%N_DEPORTES);

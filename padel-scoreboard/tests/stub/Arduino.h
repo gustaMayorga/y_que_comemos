@@ -24,6 +24,7 @@
 inline long random(long m){ return m? (long)(1103515245u % (unsigned long)m) : 0; }
 #define PROGMEM
 #define pgm_read_byte(p) (*(const uint8_t*)(p))
+#define pgm_read_word(p) (*(const uint16_t*)(p))
 inline void pinMode(uint8_t,uint8_t){}
 inline void digitalWrite(uint8_t,uint8_t){}
 inline int  digitalRead(uint8_t){return 1;}
