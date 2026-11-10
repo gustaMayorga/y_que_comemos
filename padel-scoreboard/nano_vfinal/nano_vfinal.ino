@@ -106,8 +106,15 @@
 // FastLED no los cuenta. Si el cartel se reinicia al prender, bajalo primero.
 //   power bank de 2 A -> 1400      cargador de 3 A -> 2000
 //   fuente de 5 V 4 A -> 2800      fuente de 5 V 10 A -> 7000
-#define MILIAMPERES    2600
+#define MILIAMPERES    1500
 #define BRILLO_DIA      200
+// TOPE DURO de brillo. Ninguna parte del programa puede pasarse de aca, ni el
+// boton de brillo ni el festejo. 276 LEDs a 200 piden picos de varios amperes
+// que una power bank NO da: la tira se queda sin tension, los WS2812 pierden
+// el estado y el panel queda congelado aunque el micro siga mandando cuadros.
+//   power bank        -> 100     fuente de 5 V 4 A  -> 160
+//   fuente de 5 V 10 A -> 255 (sin tope)
+#define BRILLO_MAX      100
 #define DEPORTE_INICIAL   0      // ver la tabla de abajo
 
 #define PUNTO_SAQUE_ANCHO 2      // tamano del indicador de saque, en pixeles
@@ -783,13 +790,27 @@ struct Boton {
 Sensor sA, sB;
 Boton bDep, bRst;
 const uint8_t BRILLOS[3]={BRILLO_DIA,120,45};
+// Nunca se usa BRILLOS[] directo: siempre por aca, para que el tope valga.
+uint8_t brilloDe(uint8_t i){
+  const uint8_t b = BRILLOS[i % 3];
+  return b < BRILLO_MAX ? b : (uint8_t)BRILLO_MAX;
+}
+
+// Consumo estimado del cuadro que esta en el buffer, en mA. 20 mA por canal a
+// fondo, escalado por el brillo, mas ~1 mA de reposo por LED. Es estimacion,
+// no medicion, pero sirve para ver DONDE estan los picos.
+uint16_t consumoEstimado(){
+  uint32_t suma = 0;
+  for(uint16_t i=0;i<NUM_LEDS;i++) suma += leds[i].r + leds[i].g + leds[i].b;
+  return (uint16_t)(suma * 20UL * FastLED.getBrightness() / (255UL*255UL) + NUM_LEDS);
+}
 uint8_t iBri=0; bool redib=true, barra=false;
 bool durmiendo=false; uint32_t tActividad=0;
 
 // Cualquier punto, boton o movimiento despierta el cartel.
 void despertar(){
   tActividad = millis();
-  if(durmiendo){ durmiendo=false; FastLED.setBrightness(BRILLOS[iBri]); redib=true;
+  if(durmiendo){ durmiendo=false; FastLED.setBrightness(brilloDe(iBri)); redib=true;
                  Serial.println(F("[presencia] despierta")); }
 }
 void dormirSiNadie(){
@@ -984,7 +1005,7 @@ void mostrarCausaReset(){
 // Sube el brillo de a poco en vez de pedirle toda la corriente de golpe.
 // Muchas power bank y cargadores USB cortan ante un escalon brusco.
 void arranqueSuave(){
-  const uint8_t objetivo = BRILLOS[iBri];
+  const uint8_t objetivo = brilloDe(iBri);
   for(uint16_t b=0; b<objetivo; b+=4){ FastLED.setBrightness((uint8_t)b); mostrar(); esperar(12); }
   FastLED.setBrightness(objetivo); mostrar();
 }
@@ -1032,6 +1053,9 @@ void setup(){
   Serial.print(F("  panel ")); Serial.print(ANCHO); Serial.print('x'); Serial.print(ALTO);
   Serial.print(F(" = ")); Serial.print(NUM_LEDS); Serial.println(F(" LEDs"));
   Serial.print(F("  RAM libre: ")); Serial.println(ramLibre());
+  Serial.print(F("  brillo ")); Serial.print(brilloDe(0));
+  Serial.print(F(" (tope ")); Serial.print(BRILLO_MAX);
+  Serial.print(F(")   limite ")); Serial.print(MILIAMPERES); Serial.println(F(" mA"));
 #if MODO_MINIMO
   Serial.println(F("  *** MODO MINIMO: sin sensores, sin RF, sin buzzer ***"));
 #endif
@@ -1124,6 +1148,7 @@ void loop(){
       Serial.print(F("  btn "));                 // 1 = leido como apretado
       Serial.print(bDep.leer() ? '1' : '0');
       Serial.print(bRst.leer() ? '1' : '0');
+      Serial.print(F("  mA~")); Serial.print(consumoEstimado());
       mostrarVolts(F("  Vcc "), leerVcc());
       mostrarVolts(F("  min "), vccMin);
 #if PIN_VLED >= 0
@@ -1167,7 +1192,7 @@ void loop(){
   if(barra){ barra=false; redib=true; }
 
   if(bRst.corto()){ iBri=(uint8_t)((iBri+1)%3);
-    FastLED.setBrightness(BRILLOS[iBri]); bip(1500,40); redib=true; }
+    FastLED.setBrightness(brilloDe(iBri)); bip(1500,40); redib=true; }
   if(bRst.largo()){ resetPartido(); bip(1200,90); bip(1700,120); redib=true; }
   if(bDep.corto()) cambiarDeporte();
   if(bDep.largo()) grabarControles();

@@ -310,6 +310,70 @@ plástico y madera**, así que va **adentro de la caja sellada**, sin agujeros.
 **No sirve para contar puntos**: no distingue equipos, no mide distancia y se
 dispara con cualquiera que pase. Para eso van los HC-SR04.
 
+## 💡 Tope de brillo: el consumo es EL problema de este cartel
+
+**Confirmado en banco:** con brillo 200 el cartel muere; con brillo 100 corre
+una serie entera, sensor incluido. Ya está en el firmware.
+
+```c
+#define MILIAMPERES    1500    // ~70% de lo que REALMENTE da tu fuente
+#define BRILLO_MAX      100    // tope duro, nada puede pasarse
+```
+
+| Tu fuente | `MILIAMPERES` | `BRILLO_MAX` |
+|---|---|---|
+| Power bank 2 A | `1400` | `100` |
+| Cargador 3 A | `2000` | `130` |
+| Fuente 5 V 4 A | `2800` | `160` |
+| Fuente 5 V 10 A | `7000` | `255` (sin tope) |
+
+`BRILLO_MAX` es un **tope duro**: ninguna parte del programa lo puede pasar, ni
+el botón de brillo ni el festejo. Nunca se usa `BRILLOS[]` directo, siempre vía
+`brilloDe()`.
+
+### Ver el consumo
+
+La telemetría ahora estima los mA del cuadro que está en pantalla:
+
+```
+[salud] loops/s 1579  rf/s 301  btn 00  mA~840  Vcc 4.688 V  min 4.447 V
+```
+
+Es estimación (20 mA por canal a fondo, escalado por el brillo, más ~1 mA de
+reposo por LED), no medición. Pero sirve para ver **dónde** están los picos.
+Mirá el número durante el festejo: ahí es donde el cartel se muere.
+
+### El festejo es el pico de todo el programa
+
+`festejo()` usa `CRGB(255,255,180)` —casi blanco— sobre LEDs al azar, después
+`ola()` y después "GANA A" corriendo. Es el cuadro más caro que dibuja el
+programa. Si algo va a morir, muere ahí.
+
+## 🧊 El panel queda congelado y el micro sigue contando
+
+Ese síntoma es **distinto de todos los demás y no es del micro**:
+
+```
+el cartel quedó fijo, no se mueve más, y el micro seguía contando
+```
+
+El Nano sigue mandando cuadros por serie y **la tira los ignora**. O sea que el
+problema está en la tira o en la línea de datos, no en el ATmega.
+
+**La causa es la línea de datos sin resistencia.** Cuando el riel de la tira se
+hunde por el pico de consumo, su `VDD` baja a 4 V mientras el pin `D6` del Nano
+sigue entregando 5 V. El `DIN` del primer LED queda **1 V por encima de su
+propia alimentación** y conduce por su diodo de protección: el primer LED se
+traba o se daña, y la tira entera deja de aceptar datos.
+
+**Los 330 Ω en serie entre `D6` y `DIN` existen justo para limitar esa
+corriente.** Que el cable sea corto no los hace opcionales: la causa no es la
+longitud del cable, es la diferencia de tensión entre dos rieles.
+
+```
+   D6 del Nano ──[330]── DIN del primer LED
+```
+
 ## 🧪 Dos fallas distintas, y cómo separarlas
 
 Si a veces se reinicia **todo** (el panel queda oscuro un rato largo) y a veces

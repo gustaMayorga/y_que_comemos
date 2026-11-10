@@ -44,7 +44,9 @@ struct FastLEDStub {
   template<EChipset C,int PIN,int CLK,EOrder O> void addLeds(CRGB*,int){}
   void setMaxPowerInVoltsAndMilliamps(int,int){}
   void setDither(int){}
-  void setBrightness(uint8_t){}
+  unsigned char _bri=255;
+  void setBrightness(unsigned char b){ _bri=b; }
+  unsigned char getBrightness() const { return _bri; }
   void show(){}
   void clear(bool w=false){ (void)w; }
 };
