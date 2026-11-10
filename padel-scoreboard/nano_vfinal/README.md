@@ -310,6 +310,20 @@ plástico y madera**, así que va **adentro de la caja sellada**, sin agujeros.
 **No sirve para contar puntos**: no distingue equipos, no mide distancia y se
 dispara con cualquiera que pase. Para eso van los HC-SR04.
 
+## 🚦 Antes de darlo a probar a alguien
+
+**Revisá estas cuatro líneas o el cartel va a hacer cosas raras delante de la
+gente:**
+
+| Línea | Tiene que estar en | Si no |
+|---|---|---|
+| `AUTO_PUNTOS` | **`0`** | **Suma puntos solo cada 2 s.** Es lo peor que te puede pasar en una demo |
+| `SALUD_MS` | `0` | Inunda el serie. Inofensivo, pero no hace falta |
+| `MODO_MINIMO` | `false` | Sin sensores, sin RF, sin buzzer |
+| `WATCHDOG` | `true` | Sin él, un cuelgue queda colgado. Con él vuelve solo a los 8 s |
+
+Y el brillo: `BRILLO_DIA` manda los tres niveles del botón.
+
 ## 💡 Tope de brillo: el consumo es EL problema de este cartel
 
 **Confirmado en banco:** con brillo 200 el cartel muere; con brillo 100 corre
@@ -326,6 +340,22 @@ una serie entera, sensor incluido. Ya está en el firmware.
 | Cargador 3 A | `2000` | `130` |
 | Fuente 5 V 4 A | `2800` | `160` |
 | Fuente 5 V 10 A | `7000` | `255` (sin tope) |
+
+### Un solo número: `BRILLO_DIA`
+
+Los tres niveles del botón salen de `BRILLO_DIA`, al **100 / 55 / 22 %**, con un
+piso de 8. Así nunca quedan desordenados ni por encima del tope:
+
+| `BRILLO_DIA` | Niveles del botón (tope 100) | Para |
+|---|---|---|
+| `200` | 100 / 100 / 44 | Topeado: los dos primeros se juntan |
+| `130` | 100 / 71 / 28 | Fuente de 3 A |
+| `100` | 100 / 55 / 22 | Power bank, al aire libre |
+| `75` | 75 / 41 / 16 | **Pruebas en interior** |
+
+⚠️ Con `BRILLO_DIA 200` y tope 100 los dos primeros niveles dan lo mismo, así
+que el botón parece tener solo dos posiciones. Es correcto, pero si te molesta,
+bajá `BRILLO_DIA` a `130`.
 
 `BRILLO_MAX` es un **tope duro**: ninguna parte del programa lo puede pasar, ni
 el botón de brillo ni el festejo. Nunca se usa `BRILLOS[]` directo, siempre vía

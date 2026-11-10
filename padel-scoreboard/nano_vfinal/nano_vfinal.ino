@@ -789,7 +789,10 @@ struct Boton {
 };
 Sensor sA, sB;
 Boton bDep, bRst;
-const uint8_t BRILLOS[3]={BRILLO_DIA,120,45};
+// Los tres niveles del boton de brillo salen de BRILLO_DIA, al 100 / 55 / 22 %.
+// Asi nunca quedan desordenados ni por encima del tope: un solo numero manda.
+#define BRI_PCT(p) ((uint8_t)( (BRILLO_DIA)*(p)/100 > 8 ? (BRILLO_DIA)*(p)/100 : 8 ))
+const uint8_t BRILLOS[3]={BRILLO_DIA, BRI_PCT(55), BRI_PCT(22)};
 // Nunca se usa BRILLOS[] directo: siempre por aca, para que el tope valga.
 uint8_t brilloDe(uint8_t i){
   const uint8_t b = BRILLOS[i % 3];
@@ -1054,6 +1057,8 @@ void setup(){
   Serial.print(F(" = ")); Serial.print(NUM_LEDS); Serial.println(F(" LEDs"));
   Serial.print(F("  RAM libre: ")); Serial.println(ramLibre());
   Serial.print(F("  brillo ")); Serial.print(brilloDe(0));
+  Serial.print('/'); Serial.print(brilloDe(1));
+  Serial.print('/'); Serial.print(brilloDe(2));
   Serial.print(F(" (tope ")); Serial.print(BRILLO_MAX);
   Serial.print(F(")   limite ")); Serial.print(MILIAMPERES); Serial.println(F(" mA"));
 #if MODO_MINIMO
