@@ -310,6 +310,52 @@ plástico y madera**, así que va **adentro de la caja sellada**, sin agujeros.
 **No sirve para contar puntos**: no distingue equipos, no mide distancia y se
 dispara con cualquiera que pase. Para eso van los HC-SR04.
 
+## 🧪 Dos fallas distintas, y cómo separarlas
+
+Si a veces se reinicia **todo** (el panel queda oscuro un rato largo) y a veces
+**solo el micro** (el panel se borra y al segundo ya está el ícono de nuevo),
+**son dos problemas distintos y no se arreglan juntos**:
+
+| Lo que ves | Qué pasó | Dónde está |
+|---|---|---|
+| Panel oscuro **un rato largo**, después arranca | **Se cortó el riel de 5 V** de los LED | La fuente / power bank |
+| Panel se borra y en ~1 s ya muestra el ícono | Se reinició **solo el Nano** | Alimentación del Nano, masa, pin RESET |
+
+El segundo caso también borra el panel, porque el `setup()` apaga la tira como
+primera cosa. **Lo que los distingue es cuánto dura el negro.**
+
+### Si muere al sumar un punto: ya lo podés reproducir
+
+Un punto es el **momento de mayor consumo de todo el programa**: bip + flash +
+redibujo, todo junto. Si aguanta 15 minutos quieto y muere en el primer punto,
+el consumo del punto es la causa. Y eso **se reproduce a voluntad**:
+
+```c
+#define AUTO_PUNTOS  2000      // un punto solo cada 2 s, sin tocar nada
+```
+
+```
+[auto] punto nro 7
+pt B  j 0-0  s 0-0
+```
+
+Dejalo correr y **contá cuántos puntos aguanta**. Si muere siempre alrededor
+del mismo número, es consumo. Si muere al azar, es contacto.
+
+### Y ahora bisecá, que son 3 pruebas de 2 minutos
+
+Con `AUTO_PUNTOS 2000` puesto, probá en este orden:
+
+| Cambio | Si deja de morir, era |
+|---|---|
+| `#define PIN_BUZZER -1` | **El buzzer**: 30-80 mA en un pin que da 40, más pico inductivo |
+| `#define MILIAMPERES 1000` y `BRILLO_DIA 80` | **El escalón de corriente de los LED**: la fuente no lo puede dar |
+| `#define PIN_VLED A0` (dos resistencias de 10k) | No arregla: **te dice cuál de los dos rieles se cae** |
+
+El tercero no es un arreglo, es el medidor que falta: con él el banner te dice
+qué tenía el riel de los LED justo antes del reinicio, y la tabla de arriba
+deja de ser deducción.
+
 ## ✅ RESUELTO: era una masa floja
 
 Si el cartel se reinicia o se cuelga al azar, **revisá las masas con el dedo

@@ -128,6 +128,13 @@
 // Al cambiar de deporte, despues del icono pasa el nombre corriendo.
 // false = solo el icono (mas rapido).
 #define DEPORTE_NOMBRE true
+/* ============ PRUEBA DE ESFUERZO ============
+   Suma un punto solo cada tantos ms, sin tocar nada. 0 = apagado.
+   Un punto es el momento de MAYOR consumo del programa: bip + flash + redibujo.
+   Si el cartel muere al sumar puntos, con esto lo reproduces en segundos y
+   en serie, en vez de esperar 15 minutos parado adelante del sensor.
+   Poner 2000, dejarlo correr, y contar cuantos puntos aguanta.             */
+#define AUTO_PUNTOS       0
 
 #if MODO_MINIMO
   #undef  SENSOR_TIPO
@@ -1028,6 +1035,10 @@ void setup(){
 #if MODO_MINIMO
   Serial.println(F("  *** MODO MINIMO: sin sensores, sin RF, sin buzzer ***"));
 #endif
+#if AUTO_PUNTOS > 0
+  Serial.print(F("  *** PRUEBA DE ESFUERZO: un punto cada "));
+  Serial.print(AUTO_PUNTOS); Serial.println(F(" ms ***"));
+#endif
   mostrarCausaReset();
   vigilarVcc();
   mostrarVolts(F("  Vcc ahora: "), leerVcc());
@@ -1123,6 +1134,15 @@ void loop(){
       nLoops = 0; tSalud = millis();
     }
   }
+#endif
+
+#if AUTO_PUNTOS > 0
+  { static uint32_t tAP = 0; static uint16_t nAP = 0;
+    if(millis() - tAP >= AUTO_PUNTOS){
+      tAP = millis();
+      Serial.print(F("[auto] punto nro ")); Serial.println(++nAP);
+      onPunto((uint8_t)(nAP & 1));
+    } }
 #endif
 
   bDep.poll(); bRst.poll();
