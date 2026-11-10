@@ -372,6 +372,50 @@ que había **justo antes** del reset que te dejó a ciegas:
 así que el valor absoluto puede estar corrido. Comparalo **una vez** con el
 tester en reposo y quedate con las variaciones, que ésas sí son exactas.
 
+### Entra solo a grabar controles, o cambia de deporte solo
+
+```
+[deporte] 1
+[grabar] control 1
+  apreta el boton 1
+```
+
+**Eso no es ruido ni es un bug: es `D12` leído como apretado.** Para que
+dispare `largo()` el pin tiene que estar en bajo **15 segundos seguidos**, y el
+antirrebote exige 30 ms estables antes de aceptar cualquier cambio. Ninguna
+interferencia aguanta eso. **Algo mantiene `D12` a masa.**
+
+El banner y la telemetría ahora te lo dicen:
+
+```
+  !! D12 (DEPORTE) se lee APRETADO sin que nadie lo toque
+[salud] loops/s 1272  rf/s 2388  btn 10  Vcc 4.728 V  min 4.555 V
+                                     ▲▲
+                                     ││ A1  (reset del partido)
+                                     └┴ D12 (deporte)   1 = apretado
+```
+
+Si ves `btn 10` sin tocar nada, ahí está tu problema. Buscalo en este orden:
+
+1. **Desenchufá el cable de `D12`.** Sin nada conectado, el pull-up interno lo
+   deja en alto y no puede disparar. Si los fantasmas paran, es el botón o su
+   cable.
+2. **Cable suelto tocando masa**, o botón trabado. Es lo más común y lo más
+   fácil de descartar: mirá `btn` mientras movés el cable con la mano.
+3. **Pull-up interno demasiado flojo.** Son 30-50 kΩ. Con un cable largo, un
+   **pull-up externo de 10 kΩ** de `D12` a `5V` más un **capacitor de 100 nF**
+   de `D12` a `GND` lo endurece muchísimo. Acá el capacitor **sí va** (son
+   botones de persona, 1 ms de constante de tiempo no se nota) — al contrario
+   del pin `RESET`, donde rompería la programación.
+4. **`D11` es el buzzer y está al lado de `D12` en el zócalo.** Si los cables
+   van juntos, el buzzer conmutando acopla ahí. Separalos.
+
+**Protección en firmware (ya incluida):** si un pin de botón se lee apretado
+**al arrancar**, no es nadie apretando — es un cable suelto o ruido. El botón
+queda **bloqueado hasta que se vea suelto una vez**, así un pin clavado en bajo
+no puede disparar nada nunca. Es lo que hace la diferencia entre un pin trabado
+que te borra los controles y uno que solo te avisa.
+
 ### Se clavó con `loops/s` normal en la última línea
 
 ```
@@ -384,6 +428,11 @@ El loop corría a full 3 segundos antes de morir y paró de golpe. Eso es un
 loop**. Si el loop se detiene, la última línea que ves es siempre normal.
 
 Hay tres guardias para eso, y las tres **avisan** en vez de tapar:
+
+> ⚠️ **Toda espera que pueda durar más de 8 s tiene que llamar a `LATIDO()`.**
+> Si no, el watchdog la corta por la mitad. Pasó con `grabarControles()`, que
+> espera hasta 30 s por cada botón: el watchdog la mataba a los 8 s y parecía
+> un reset espontáneo. Ya está, pero tenelo en cuenta si agregás esperas.
 
 **1. Watchdog (`WATCHDOG true`).** Si el micro se cuelga, se reinicia solo a
 los 8 s. No tapa nada: el cartel **vuelve solo, sin tocar el botón**, y eso

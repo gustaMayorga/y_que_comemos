@@ -111,6 +111,11 @@
 #define RESET_LARGO_MS  2000
 #define UNDO_PASOS        6
 
+/* ----- prototipos: estas tres las usa casi todo lo de abajo ----- */
+void     vigilarVcc();
+void     esperar(uint16_t ms);
+uint16_t leerVcc();
+
 #define C_PUNTOS   CRGB(255,  0,  0)
 #define C_JUEGOS   CRGB(255, 60,  0)
 #define C_SETS     CRGB(255,180,  0)
@@ -211,7 +216,7 @@ void corre(const __FlashStringHelper* f, const CRGB& c, uint8_t vueltas){
   char t[14]; strncpy_P(t,(const char*)f,sizeof(t)-1); t[sizeof(t)-1]=0;
   const int16_t w=(int16_t)strlen(t)*6;
   for(uint8_t v=0;v<vueltas;v++)
-    for(int16_t o=ANCHO;o>-w;o--){ limpiar(); txt57(t,o,(ALTO-7)/2,c); mostrar(); delay(42); }
+    for(int16_t o=ANCHO;o>-w;o--){ limpiar(); txt57(t,o,(ALTO-7)/2,c); mostrar(); esperar(42); }
 }
 
 /* ========================= TANTEO ========================= */
@@ -368,18 +373,19 @@ void dibujar(){
 /* ========================= SONIDO Y FESTEJOS ========================= */
 // Los bips prenden tambien el LED de la placa, para poder grabar los controles
 // mirando el Arduino aunque el panel este tapado.
-void vigilarVcc();               // definida mas abajo, junto a leerVcc()
+// Refrescar el watchdog. TODA espera que pueda durar mas de 8 s tiene que
+// llamarlo, o el watchdog la corta por la mitad.
+#if defined(__AVR__) && WATCHDOG
+  #define LATIDO() wdt_reset()
+#else
+  #define LATIDO() ((void)0)
+#endif
 
 // delay() es ciego: mientras dura no se muestrea Vcc, y justo el bip es el
 // momento de mas riesgo. esperar() hace lo mismo pero sigue vigilando.
 void esperar(uint16_t ms){
   const uint32_t t0 = millis();
-  while(millis() - t0 < ms){
-    vigilarVcc();
-#if defined(__AVR__) && WATCHDOG
-    wdt_reset();
-#endif
-  }
+  while(millis() - t0 < ms){ vigilarVcc(); LATIDO(); }
 }
 
 void bip(uint16_t f, uint16_t ms){
@@ -401,7 +407,7 @@ void ola(uint8_t vueltas){
   for(uint16_t t=0;t<(uint16_t)vueltas*110;t+=6){
     for(uint8_t y=0;y<ALTO;y++) for(uint8_t x=0;x<ANCHO;x++)
       pix(x,y,rueda((uint8_t)(t+x*8+y*5)));
-    mostrar(); delay(18);
+    mostrar(); esperar(18);
   }
 }
 void festejo(uint8_t t){
@@ -410,7 +416,7 @@ void festejo(uint8_t t){
     for(uint8_t k=0;k<12;k++){
       fadeToBlackBy(leds,NUM_LEDS,120);
       for(uint8_t s=0;s<10;s++) leds[random16(NUM_LEDS)] = k<6?CRGB(255,255,180):CRGB(255,110,0);
-      mostrar(); delay(45);
+      mostrar(); esperar(45);
     }
   }
   ola(2);
@@ -536,8 +542,10 @@ void rfGuardar(){
 uint32_t rfEsperar(uint16_t segundos){
   const uint32_t t0 = millis();
   uint32_t c;
-  while(millis() - t0 < (uint32_t)segundos*1000)
+  while(millis() - t0 < (uint32_t)segundos*1000){
+    LATIDO();                      // la grabacion espera hasta 30 s por boton
     if(rfTrama(&c)) return c;
+  }
   return 0;
 }
 // Devuelve 1, 2 o 3 segun la FUNCION del boton, de cualquiera de los llaveros.
@@ -662,13 +670,21 @@ uint8_t sensorUnico(){
 }
 #endif
 struct Boton {
-  uint8_t pin; bool alto, est, crudo, evC, evL, yaL; uint32_t tc, td; uint16_t lMs;
+  uint8_t pin; bool alto, est, crudo, evC, evL, yaL, bloq; uint32_t tc, td; uint16_t lMs;
   void begin(uint8_t p, bool a, uint16_t l){
     pin=p; alto=a; lMs=l; pinMode(p, a?INPUT:INPUT_PULLUP);
-    est=crudo=evC=evL=yaL=false; tc=td=0; }
+    est=crudo=evC=evL=yaL=false; tc=td=0;
+    // Si el pin YA se lee apretado al arrancar, no es nadie apretando: es un
+    // cable suelto, un boton trabado o ruido. Queda bloqueado hasta que se
+    // vea suelto una vez, asi un pin en bajo no puede disparar nada.
+    bloq = leer(); }
+  bool leer() const {
+    return alto ? (digitalRead(pin)==HIGH) : (digitalRead(pin)==LOW); }
+  bool trabado() const { return bloq; }
   void poll(){
     const uint32_t n=millis();
-    const bool v = alto ? (digitalRead(pin)==HIGH) : (digitalRead(pin)==LOW);
+    const bool v = leer();
+    if(bloq){ if(!v) bloq=false; return; }     // esperando que se suelte
     if(v!=crudo){ crudo=v; tc=n; return; }
     if(n-tc<30) return;
     if(v&&!est){ est=true; td=n; yaL=false; }
@@ -764,6 +780,7 @@ void grabarControles(){
     uint32_t c = 0;
     const uint32_t lim = millis() + 30000UL;
     while(millis() < lim){
+      LATIDO();
       c = rfEsperar(1);
       if(!c) continue;
       bool rep=false;                       // no aceptar dos veces el mismo
@@ -778,7 +795,7 @@ void grabarControles(){
     rfCod[ctrl*RF_BOTONES + b] = c;
     Serial.print(F("  guardado: ")); Serial.println(c);
 
-    if(b < RF_BOTONES-1){ bip(1900,90); delay(70); bip(1900,90); }   // bip bip
+    if(b < RF_BOTONES-1){ bip(1900,90); esperar(70); bip(1900,90); }   // bip bip
     else                  bip(2200,900);                             // biiiiiip
   }
   rfProxCtrl = (uint8_t)((ctrl+1) % RF_CONTROLES);
@@ -857,7 +874,7 @@ void mostrarCausaReset(){
 // Muchas power bank y cargadores USB cortan ante un escalon brusco.
 void arranqueSuave(){
   const uint8_t objetivo = BRILLOS[iBri];
-  for(uint16_t b=0; b<objetivo; b+=4){ FastLED.setBrightness((uint8_t)b); mostrar(); delay(12); }
+  for(uint16_t b=0; b<objetivo; b+=4){ FastLED.setBrightness((uint8_t)b); mostrar(); esperar(12); }
   FastLED.setBrightness(objetivo); mostrar();
 }
 
@@ -909,6 +926,10 @@ void setup(){
   mostrarVolts(F("  Vcc ahora: "), leerVcc());
   mostrarVolts(F("   minimo visto: "), vccMin);
   Serial.print(F("   reinicios: ")); Serial.println(nReinicios);
+  if(bDep.trabado())
+    Serial.println(F("  !! D12 (DEPORTE) se lee APRETADO sin que nadie lo toque"));
+  if(bRst.trabado())
+    Serial.println(F("  !! A1 (RESET) se lee APRETADO sin que nadie lo toque"));
   if(nReinicios){
     Serial.print(F("  estuvo vivo ")); Serial.print(vivoMs/1000);
     Serial.println(F(" s antes del ultimo reset"));
@@ -942,9 +963,7 @@ void setup(){
 }
 
 void loop(){
-#if defined(__AVR__) && WATCHDOG
-  wdt_reset();
-#endif
+  LATIDO();
   vigilarVcc();
 
   if(rfTormenta){                // la ISR se apago sola por exceso de ruido
@@ -976,6 +995,9 @@ void loop(){
       Serial.print((uint16_t)((uint32_t)nLoops * 1000UL / dt));
       Serial.print(F("  rf/s "));
       Serial.print((uint16_t)((uint32_t)f * 1000UL / dt));
+      Serial.print(F("  btn "));                 // 1 = leido como apretado
+      Serial.print(bDep.leer() ? '1' : '0');
+      Serial.print(bRst.leer() ? '1' : '0');
       mostrarVolts(F("  Vcc "), leerVcc());
       mostrarVolts(F("  min "), vccMin);
       Serial.println();
