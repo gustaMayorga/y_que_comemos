@@ -613,13 +613,14 @@ uint8_t sensorUnico(){
   const uint32_t n = millis();
   if(n - tMed < 55) return 0;              // no medir mas rapido que eso
   tMed = n;
-  const uint8_t z = zonaDe(medirCm(PIN_SENS_A, PIN_ECHO_A));
+  const uint16_t cm = medirCm(PIN_SENS_A, PIN_ECHO_A);
+  const uint8_t  z  = zonaDe(cm);
   switch(st){
     case 0: if(z){ st=1; zona=z; t0=n; } break;
     case 1: if(z != zona) st=0;
             else if(n-t0 >= SENS_SOSTENER_MS){
               st=2; t0=n;
-              Serial.print(F("[sens] ")); Serial.print(medirCm(PIN_SENS_A,PIN_ECHO_A));
+              Serial.print(F("[sens] ")); Serial.print(cm);
               Serial.print(F(" cm -> ")); Serial.println(zona==1?'A':'B');
               return zona;
             }
@@ -774,6 +775,8 @@ uint8_t causaReset = 0;
 uint16_t magiaRam NOINIT;      // 0xA55A = la RAM vale, vengo de un reset
 uint16_t vccMin   NOINIT;      // la tension mas baja vista, en mV
 uint8_t  nReinicios NOINIT;
+uint32_t vivoMs     NOINIT;     // cuanto estuvo vivo antes del ultimo reset
+uint32_t tSalud = 0;            // arranca al final de setup(), no en 0
 
 // Mide la tension de alimentacion del PROPIO Nano, sin ningun componente
 // extra: compara la referencia interna de 1.1 V contra AVcc.
@@ -827,7 +830,7 @@ void arranqueSuave(){
 void setup(){
   causaReset = MCUSR; MCUSR = 0;
   if(magiaRam != 0xA55A){        // RAM con basura => le acaban de dar corriente
-    magiaRam = 0xA55A; vccMin = 9999; nReinicios = 0;
+    magiaRam = 0xA55A; vccMin = 9999; nReinicios = 0; vivoMs = 0;
   } else {
     nReinicios++;                // venimos de un reset: la RAM se conservo
   }
@@ -872,6 +875,10 @@ void setup(){
   mostrarVolts(F("  Vcc ahora: "), leerVcc());
   mostrarVolts(F("   minimo visto: "), vccMin);
   Serial.print(F("   reinicios: ")); Serial.println(nReinicios);
+  if(nReinicios){
+    Serial.print(F("  estuvo vivo ")); Serial.print(vivoMs/1000);
+    Serial.println(F(" s antes del ultimo reset"));
+  }
   if(vccMin < 4500)
     Serial.println(F("  !! por debajo de 4.5 V el 328P a 16 MHz esta FUERA DE SPEC"));
   { uint8_t n=0; for(uint8_t i=0;i<N_CODIGOS;i++) if(rfCod[i]) n++;
@@ -894,18 +901,20 @@ void setup(){
   arranqueSuave();               // y recien ahi sube la corriente, escalonada
   mostrarDeporte();
   dibujar();
+  tSalud = millis();             // la telemetria mide desde ACA, no desde el boot
 }
 
 void loop(){
   vigilarVcc();
+  { static uint32_t tV=0; const uint32_t n=millis();
+    if(n - tV >= 1000){ tV = n; vivoMs = n; } }   // sobrevive al reset
 
   // --- telemetria: si loops/s se desploma, algo le esta robando el CPU -----
 #if SALUD_MS > 0
   {
-    static uint32_t tS = 0;
     static uint16_t nLoops = 0;
     nLoops++;
-    const uint32_t dt = millis() - tS;
+    const uint32_t dt = millis() - tSalud;
     if(dt >= SALUD_MS){
       uint16_t f;
       noInterrupts(); f = rfFlancos; rfFlancos = 0; interrupts();
@@ -916,7 +925,7 @@ void loop(){
       mostrarVolts(F("  Vcc "), leerVcc());
       mostrarVolts(F("  min "), vccMin);
       Serial.println();
-      nLoops = 0; tS = millis();
+      nLoops = 0; tSalud = millis();
     }
   }
 #endif

@@ -372,6 +372,49 @@ que había **justo antes** del reset que te dejó a ciegas:
 así que el valor absoluto puede estar corrido. Comparalo **una vez** con el
 tester en reposo y quedate con las variaciones, que ésas sí son exactas.
 
+### Reset instantáneo con todo lo interno sano → mirá el pin RESET
+
+Si la telemetría muestra esto justo antes de un reinicio:
+
+```
+[salud] loops/s 1290  rf/s 1400  Vcc 4.728 V  min 4.593 V
+```
+
+…entonces **el reset no viene de adentro del micro**. `loops/s` estable
+descarta que algo le robe el CPU; `min` que no baje descarta hundimientos de
+tensión; `rf/s` bajo descarta la ISR del RF. Si además el reinicio llega sin
+degradación previa y sin relación con un punto o un bip, queda **el pin
+`RESET`**.
+
+**Y el camino más probable es el USB.** En el Nano, la línea **DTR** del
+conversor serie está atada al `RESET` a través de un capacitor de 100 nF: así
+es como el IDE resetea la placa para programarla. Con el monitor serie abierto,
+DTR está activo. **Un cable USB marginal o movido glitchea DTR y la placa se
+resetea al instante**, sin que nada adentro del micro se entere. Encaja con
+todo: instantáneo, aleatorio, la RAM intacta, y ninguna señal eléctrica previa.
+
+**Prueba decisiva (gratis): desenchufá el USB.** Alimentá el Nano solo por el
+pin `5V` y mirá el panel. Cada arranque muestra la letra del deporte 1.3 s:
+**ésa es la firma visible de un reinicio.** Si sin USB deja de reiniciarse,
+era el USB.
+
+Si confirmás que es ruido en `RESET`, el endurecimiento es un **pull-up de
+10 kΩ de `RESET` a `5V`**. Refuerza el pull-up interno (que son 30-50 kΩ, muy
+flojo) y **no** impide programar, porque el capacitor de DTR sigue
+funcionando. No le pongas un capacitor a GND: eso sí rompe la programación.
+
+### Cuánto estuvo vivo
+
+El banner informa el uptime previo:
+
+```
+  estuvo vivo 47 s antes del ultimo reset
+```
+
+Sirve para buscar patrón. **Siempre el mismo número** = algo periódico
+(desborde, timeout, un ciclo de la fuente). **Números dispares** = ruido o algo
+externo. Un solo dato no dice nada: hacen falta varios.
+
 ### Se cuelga (no se reinicia): mirá `loops/s`
 
 Un cuelgue y un reset son problemas distintos. Si se **reinicia**, `reinicios`
