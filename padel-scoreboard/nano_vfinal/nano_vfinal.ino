@@ -69,6 +69,12 @@
 // Telemetria por serie cada tantos ms. 0 = apagada.
 // loops/s se desploma si algo le roba el CPU al loop: eso es un cuelgue.
 #define SALUD_MS       3000
+// Medir el RIEL DE LOS LED (la fuente / power bank), no el del Nano.
+// Hace falta un divisor de DOS RESISTENCIAS IGUALES de 10k:
+//    riel +5V LED ---[10k]--- A0 ---[10k]--- GND
+// -1 = no medir. Guarda el minimo y SOBREVIVE al reinicio, asi se ve si la
+// fuente se corto justo antes.
+#define PIN_VLED         -1
 // Watchdog: si el micro se cuelga, se reinicia solo a los 8 s.
 // NO tapa el problema: el cartel vuelve SOLO, sin tocar el boton, y eso
 // mismo es la prueba de que se colgo. Si tu bootloader es viejo y un reset
@@ -843,6 +849,7 @@ uint16_t magiaRam NOINIT;      // 0xA55A = la RAM vale, vengo de un reset
 uint16_t vccMin   NOINIT;      // la tension mas baja vista, en mV
 uint8_t  nReinicios NOINIT;
 uint32_t vivoMs     NOINIT;     // cuanto estuvo vivo antes del ultimo reset
+uint16_t vledMin    NOINIT;     // minimo del riel de los LED, en mV
 uint32_t tSalud = 0;            // arranca al final de setup(), no en 0
 
 // Mide la tension de alimentacion del PROPIO Nano, sin ningun componente
@@ -873,6 +880,27 @@ void vigilarVcc(){
   if(v && v < vccMin) vccMin = v;
 }
 
+// Tension del riel de los LED, en mV. Se apoya en leerVcc() para tener una
+// referencia absoluta, asi que hereda su calibracion.
+uint16_t leerVled(){
+#if PIN_VLED >= 0
+  const uint16_t vcc = leerVcc();
+  if(!vcc) return 0;
+  (void)analogRead(PIN_VLED);            // descarte: el ADC viene de otra entrada
+  const uint32_t a = (uint32_t)analogRead(PIN_VLED);
+  return (uint16_t)(a * vcc / 1023UL * 2UL);   // x2 por el divisor 10k/10k
+#else
+  return 0;
+#endif
+}
+
+void vigilarVled(){
+#if PIN_VLED >= 0
+  const uint16_t v = leerVled();
+  if(v && v < vledMin) vledMin = v;
+#endif
+}
+
 void mostrarVolts(const __FlashStringHelper* etq, uint16_t mv){
   Serial.print(etq); Serial.print(mv/1000); Serial.print('.');
   if(mv%1000 < 100) Serial.print('0');
@@ -901,7 +929,7 @@ void arranqueSuave(){
 void setup(){
   causaReset = MCUSR; MCUSR = 0;
   if(magiaRam != 0xA55A){        // RAM con basura => le acaban de dar corriente
-    magiaRam = 0xA55A; vccMin = 9999; nReinicios = 0; vivoMs = 0;
+    magiaRam = 0xA55A; vccMin = 9999; vledMin = 9999; nReinicios = 0; vivoMs = 0;
   } else {
     nReinicios++;                // venimos de un reset: la RAM se conservo
   }
@@ -949,6 +977,13 @@ void setup(){
   mostrarVolts(F("  Vcc ahora: "), leerVcc());
   mostrarVolts(F("   minimo visto: "), vccMin);
   Serial.print(F("   reinicios: ")); Serial.println(nReinicios);
+#if PIN_VLED >= 0
+  mostrarVolts(F("  riel LED: "), leerVled());
+  mostrarVolts(F("   minimo visto: "), vledMin);
+  Serial.println();
+  if(vledMin < 4000)
+    Serial.println(F("  !! el riel de los LED se CORTO: es la fuente/power bank"));
+#endif
   if(bDep.trabado())
     Serial.println(F("  !! D12 (DEPORTE) se lee APRETADO sin que nadie lo toque"));
   if(bRst.trabado())
@@ -988,6 +1023,7 @@ void setup(){
 void loop(){
   LATIDO();
   vigilarVcc();
+  vigilarVled();
 
   if(rfTormenta){                // la ISR se apago sola por exceso de ruido
     static uint32_t tRe = 0;
@@ -1023,6 +1059,10 @@ void loop(){
       Serial.print(bRst.leer() ? '1' : '0');
       mostrarVolts(F("  Vcc "), leerVcc());
       mostrarVolts(F("  min "), vccMin);
+#if PIN_VLED >= 0
+      mostrarVolts(F("  LED "), leerVled());
+      mostrarVolts(F("  min "), vledMin);
+#endif
       Serial.println();
       nLoops = 0; tSalud = millis();
     }

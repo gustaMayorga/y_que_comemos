@@ -372,6 +372,64 @@ que había **justo antes** del reset que te dejó a ciegas:
 así que el valor absoluto puede estar corrido. Comparalo **una vez** con el
 tester en reposo y quedate con las variaciones, que ésas sí son exactas.
 
+### Reinicio a los 15 segundos exactos, solo con power bank
+
+Un intervalo **repetible** es la firma de algo con temporizador, no de ruido.
+Si cambia con la fuente, la fuente es la variable.
+
+**Prueba decisiva, dos minutos:** cambiá el power bank por un **cargador de
+pared**. Un cargador no tiene apagado automático. Si los 15 segundos
+desaparecen, era el power bank y no hay más que investigar.
+
+**Y mirá el panel en el momento del reinicio.** ¿Se apaga la tira? Si se
+apaga, cortó la fuente. Si la tira sigue encendida y solo se reinicia el Nano,
+el camino es otro.
+
+#### Medir el riel de los LED (dos resistencias)
+
+Mis medidores miran la alimentación **del Nano**. Para ver la fuente de los
+LED hace falta un divisor:
+
+```
+   riel +5V de los LED ───[10k]─── A0 ───[10k]─── GND
+```
+
+Y después `#define PIN_VLED A0`. El mínimo **sobrevive al reinicio**, así que
+el banner te dice qué tenía el riel justo antes:
+
+```
+  riel LED: 5.010 V   minimo visto: 0.120 V
+  !! el riel de los LED se CORTO: es la fuente/power bank
+```
+
+Con eso deja de ser hipótesis.
+
+#### ⚠️ Un límite que mis instrumentos NO pueden cruzar
+
+`leerVcc()` compara la referencia interna de 1.1 V contra AVcc, **y las dos
+están referidas al pin `GND` del propio chip**. Si lo que se mueve es la masa
+—el pin `GND` del Nano subiendo respecto de la masa de la fuente— **las dos se
+mueven juntas y la lectura no cambia**. Un reinicio por rebote de masa es
+**invisible** para todo lo que construí acá.
+
+Y es un camino real: vos medís 0.5 V de caída a corriente normal. Un pico de
+arranque es muchas veces esa corriente, y la mitad de esa caída está en el
+conductor de masa. Por eso la masa del Nano va **al negativo de la fuente, en
+la fuente**, y nunca al final de la tira.
+
+#### Sobre el apagado automático del power bank
+
+La explicación más citada es que los power bank cortan por consumo bajo (50-100
+mA) después de 10-30 s. **Pero acá hay que dudar de eso:** 276 WS2812B
+consumen ~0.7 mA cada uno **solo por estar alimentados**, o sea ~190 mA con el
+panel en negro. Eso ya debería mantener despierto a cualquier power bank.
+
+Así que puede ser otra cosa del power bank —protección por sobrecorriente en
+modo reintento, o su propia lógica de negociación— pero **el power bank sigue
+siendo el sospechoso**, porque es la variable que cambia. Para un cartel que
+vive en una cancha, de todos modos **un power bank no es la alimentación
+correcta**: va una fuente conmutada de 5 V y 4-10 A.
+
 ### Entra solo a grabar controles, o cambia de deporte solo
 
 ```
