@@ -111,6 +111,26 @@
 #define RESET_LARGO_MS  2000
 #define UNDO_PASOS        6
 
+/* ==================== MODO MINIMO ====================
+   Para encontrar un reinicio por biseccion, sin editar cuatro lineas y sin
+   equivocarse. En true apaga sensores, RF y buzzer de una sola vez.
+   Desconecta TAMBIEN los modulos fisicamente y deja solo:
+       Nano + USB  +  tira (datos y masa)  +  fuente de los LED
+   Si asi NO se reinicia, volve a conectar UNA cosa por vez, 15 min cada una.
+   Si asi SI se reinicia, el problema esta en ese triangulo y nada mas.      */
+#define MODO_MINIMO  false
+
+#if MODO_MINIMO
+  #undef  SENSOR_TIPO
+  #define SENSOR_TIPO   0
+  #undef  PIN_RF_DATA
+  #define PIN_RF_DATA  -1
+  #undef  PIN_BUZZER
+  #define PIN_BUZZER   -1
+  #undef  PIN_PRESENCIA
+  #define PIN_PRESENCIA -1
+#endif
+
 /* ----- prototipos: estas tres las usa casi todo lo de abajo ----- */
 void     vigilarVcc();
 void     esperar(uint16_t ms);
@@ -921,6 +941,9 @@ void setup(){
   Serial.print(F("  panel ")); Serial.print(ANCHO); Serial.print('x'); Serial.print(ALTO);
   Serial.print(F(" = ")); Serial.print(NUM_LEDS); Serial.println(F(" LEDs"));
   Serial.print(F("  RAM libre: ")); Serial.println(ramLibre());
+#if MODO_MINIMO
+  Serial.println(F("  *** MODO MINIMO: sin sensores, sin RF, sin buzzer ***"));
+#endif
   mostrarCausaReset();
   vigilarVcc();
   mostrarVolts(F("  Vcc ahora: "), leerVcc());
