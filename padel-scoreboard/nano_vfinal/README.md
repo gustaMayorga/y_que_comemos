@@ -282,6 +282,41 @@ plástico y madera**, así que va **adentro de la caja sellada**, sin agujeros.
 **No sirve para contar puntos**: no distingue equipos, no mide distancia y se
 dispara con cualquiera que pase. Para eso van los HC-SR04.
 
+## ✅ RESUELTO: era una masa floja
+
+Si el cartel se reinicia o se cuelga al azar, **revisá las masas con el dedo
+antes de medir nada**. Una masa floja explica todo esto a la vez:
+
+| Síntoma | Por qué |
+|---|---|
+| Resetes y cuelgues al azar, sin patrón | El contacto va y viene |
+| `min` de Vcc siempre sano | **Un rebote de masa es invisible** para `leerVcc()` (abajo) |
+| El Nano se enciende con solo la fuente de los LED | Sin retorno bueno, la corriente vuelve por los diodos de los pines |
+| `btn 10`: `D12` leído como apretado | Si la masa se mueve, se mueven todos los umbrales lógicos |
+| 15 s repetibles con power bank | Contacto intermitente, mecánico |
+
+**Por qué ningún medidor lo vio:** `leerVcc()` compara la referencia interna de
+1.1 V contra AVcc, y las dos están referidas al pin `GND` **del propio chip**.
+Si lo que se mueve es la masa, las dos se mueven juntas y la lectura no cambia.
+Todo el instrumental de este sketch es ciego a eso **por construcción**.
+
+### La lección
+
+**Antes de instrumentar, apretá los cables.** Se perdieron muchas horas
+midiendo firmware sobre un contacto mecánico malo.
+
+### Y que no vuelva a pasar
+
+En un cartel que se mueve y viaja, **ninguna masa ni alimentación va con
+jumper DuPont**. Esos conectores se aflojan con la vibración y con el calor, y
+un contacto de alta resistencia es peor que uno cortado: funciona lo
+suficiente para engañarte.
+
+- Masas y alimentación: **soldadas, o a bornera a tornillo**. Nunca a presión.
+- Una sola masa de estrella en el negativo de la fuente de los LED.
+- Después de soldar, **tirá de cada cable con la mano**. El que se mueve, se
+  vuelve a hacer.
+
 ## 🔁 El cartel se reinicia solo al encender
 
 **Primero mirá el monitor serie.** Si el banner `[cartel] tanteador multideporte`
