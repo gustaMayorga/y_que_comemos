@@ -303,6 +303,83 @@ El sketch ahora te dice **por qué** arrancó:
 | `WDRF` | Watchdog. No lo usamos, así que sería un bootloader raro |
 | `el bootloader borro el motivo` | Normal en algunos bootloaders del Nano; usá el resto de la tabla |
 
+### Si separaste la alimentación del Nano y de los LEDs
+
+Separar los **positivos** está bien. Pero las **masas tienen que seguir unidas**,
+y unidas en el lugar correcto. Si quedaron separadas, la línea de datos no
+tiene retorno: el WS2812 ve basura y el pin `D6` del Nano busca camino por
+donde no debe.
+
+**Dónde unirlas: en el negativo de la fuente de los LEDs, en la fuente.**
+Nunca al final de la tira.
+
+```
+   fuente LEDs  ──── + ────────────┬──────────── tira (inyectar también acá) ─┐
+                │                  │                                          │
+                └─ − ──┬───────────┴────── masa de la tira ───────────────────┘
+                       │
+                       └──── GND del Nano   ← acá, en la FUENTE
+```
+
+Y acá está la explicación de tu medición. Esos **0.5 V de caída** no están
+todos en el cable del `+`: se reparten entre el positivo **y el negativo**.
+O sea que la masa del final de la tira está unos **0.25 V por encima** de la
+masa de la fuente, y ese valor **cambia con cada cuadro** que mostrás. Si el
+Nano toma su masa de ahí, toda su referencia se mueve 0.25 V al ritmo de los
+LEDs: eso es ruido inyectado directo en el micro, y da exactamente resetes
+aleatorios y datos corruptos.
+
+### Por qué 4.35 V importa, y por qué "se quedó bloqueado"
+
+El ATmega328P **a 16 MHz necesita 4.5 V como mínimo**. No es un margen de
+cortesía: es la hoja de datos. Por debajo de eso el micro no se apaga ni se
+reinicia prolijo — **ejecuta basura**.
+
+Y acá está la trampa: el detector de brown-out del Nano viene configurado en
+**2.7 V**. Entre 2.7 V y 4.5 V hay una ventana en la que el micro está fuera
+de especificación **pero el brown-out no lo resetea**. Resultado: se cuelga.
+Eso es tu *"quedó bloqueado"*.
+
+Para los LEDs, en cambio, 4.35 V es tolerable (el WS2812B arranca desde
+~3.5 V). Lo único que vas a notar es el color: el azul es el primero en caer,
+así que el blanco se va a amarillo. **La caída te molesta más por el micro que
+por los LEDs.**
+
+### Medir sin instrumental: el Nano se mide a sí mismo
+
+No hace falta tester ni osciloscopio. El 328P puede comparar su referencia
+interna de 1.1 V contra su propia alimentación y calcular cuánto tiene. Y el
+mínimo **se guarda en una zona de RAM que sobrevive al reinicio** (la RAM solo
+se borra al cortar la corriente, no al resetear), así que vas a ver la tensión
+que había **justo antes** del reset que te dejó a ciegas:
+
+```
+[cartel] tanteador multideporte
+  arranque: BORF <- TENSION BAJA, es la fuente!
+  Vcc ahora: 4.920 V   minimo visto: 4.310 V   reinicios: 7
+  !! por debajo de 4.5 V el 328P a 16 MHz esta FUERA DE SPEC
+```
+
+- **`reinicios`** cuenta desde la última vez que le cortaste la corriente. Si
+  sube solo, se está reiniciando aunque no lo veas.
+- **`minimo visto`** es el dato que buscás. Si baja de 4500, el problema es
+  alimentación y no hay nada más que discutir.
+- Si `minimo visto` se mantiene arriba de 4.7 V y aun así se resetea, **no es
+  la tensión**: mirá `arranque:`. Si dice `EXTRF`, es el pin RESET (ruido o
+  cable); si dice `PORF` repetido, es la fuente que corta y vuelve.
+
+**Calibración:** esa referencia de 1.1 V viene sin ajustar de fábrica (±10 %),
+así que el valor absoluto puede estar corrido. Comparalo **una vez** con el
+tester en reposo y quedate con las variaciones, que ésas sí son exactas.
+
+### Sobre poner un watchdog
+
+Se podría, y recuperaría solo de los cuelgues. **No lo activé a propósito**, por
+dos razones: taparía justo el síntoma que estás tratando de encontrar, y con el
+bootloader viejo del Nano un reset por watchdog deja la placa en un bucle del
+que no sale ni reprogramando fácil. Cuando la alimentación esté sana lo
+agregamos.
+
 ### Las causas, en orden de probabilidad
 
 **1. El Nano alimentado por `VIN` con 5 V.** El `VIN` pasa por el regulador

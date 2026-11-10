@@ -62,3 +62,16 @@ __attribute__((unused)) static unsigned char MCUSR = 0x01;   // en el host simul
 #define EXTRF 1
 #define BORF  2
 #define WDRF  3
+
+// --- ADC (stub): alcanza para que compile el medidor de Vcc ---
+#ifndef _BV
+#define _BV(b) (1u << (b))
+#endif
+__attribute__((unused)) static unsigned char ADMUX = 0, ADCSRA = 0;
+__attribute__((unused)) static unsigned short ADC_ = 258;   // ~4.36 V simulados
+#define ADC   ADC_
+#define REFS0 6
+#define MUX1  1
+#define MUX2  2
+#define MUX3  3
+#define ADSC  6

@@ -736,6 +736,49 @@ void grabarControles(){
 // distintos. Ojo: algunos bootloaders borran el registro y queda en 0.
 uint8_t causaReset = 0;
 
+// Variables que SOBREVIVEN a un reinicio. La RAM no se borra cuando el micro
+// se resetea, solo cuando se le corta la corriente: poniendolas en .noinit
+// podemos ver que tension habia ANTES del reset que nos dejo sin saber nada.
+#if defined(__AVR__)
+  #define NOINIT __attribute__((section(".noinit")))
+#else
+  #define NOINIT
+#endif
+uint16_t magiaRam NOINIT;      // 0xA55A = la RAM vale, vengo de un reset
+uint16_t vccMin   NOINIT;      // la tension mas baja vista, en mV
+uint8_t  nReinicios NOINIT;
+
+// Mide la tension de alimentacion del PROPIO Nano, sin ningun componente
+// extra: compara la referencia interna de 1.1 V contra AVcc.
+// OJO: esa referencia viene sin calibrar de fabrica (+-10%), asi que el valor
+// absoluto puede estar corrido. Comparalo UNA VEZ con el tester y quedate con
+// las VARIACIONES, que esas si son exactas.
+uint16_t leerVcc(){
+#if defined(__AVR__)
+  ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);   // Vbg contra AVcc
+  delayMicroseconds(350);                                   // que se estabilice
+  ADCSRA |= _BV(ADSC);
+  while(ADCSRA & _BV(ADSC)) { }
+  const uint16_t cuentas = ADC;
+  return cuentas ? (uint16_t)(1125300UL / cuentas) : 0;      // 1.1 * 1023 * 1000
+#else
+  const uint16_t cuentas = ADC;
+  return cuentas ? (uint16_t)(1125300UL / cuentas) : 0;
+#endif
+}
+
+void vigilarVcc(){
+  const uint16_t v = leerVcc();
+  if(v && v < vccMin) vccMin = v;
+}
+
+void mostrarVolts(const __FlashStringHelper* etq, uint16_t mv){
+  Serial.print(etq); Serial.print(mv/1000); Serial.print('.');
+  if(mv%1000 < 100) Serial.print('0');
+  if(mv%1000 < 10)  Serial.print('0');
+  Serial.print(mv%1000); Serial.print(F(" V"));
+}
+
 void mostrarCausaReset(){
   Serial.print(F("  arranque: "));
   if(!causaReset){ Serial.println(F("el bootloader borro el motivo")); return; }
@@ -756,6 +799,11 @@ void arranqueSuave(){
 
 void setup(){
   causaReset = MCUSR; MCUSR = 0;
+  if(magiaRam != 0xA55A){        // RAM con basura => le acaban de dar corriente
+    magiaRam = 0xA55A; vccMin = 9999; nReinicios = 0;
+  } else {
+    nReinicios++;                // venimos de un reset: la RAM se conservo
+  }
 #if defined(__AVR__)
   wdt_disable();                 // por si quedo un watchdog armado dando vueltas
 #endif
@@ -787,6 +835,12 @@ void setup(){
   Serial.print(F(" = ")); Serial.print(NUM_LEDS); Serial.println(F(" LEDs"));
   Serial.print(F("  RAM libre: ")); Serial.println(ramLibre());
   mostrarCausaReset();
+  vigilarVcc();
+  mostrarVolts(F("  Vcc ahora: "), leerVcc());
+  mostrarVolts(F("   minimo visto: "), vccMin);
+  Serial.print(F("   reinicios: ")); Serial.println(nReinicios);
+  if(vccMin < 4500)
+    Serial.println(F("  !! por debajo de 4.5 V el 328P a 16 MHz esta FUERA DE SPEC"));
   { uint8_t n=0; for(uint8_t i=0;i<N_CODIGOS;i++) if(rfCod[i]) n++;
     Serial.print(F("  controles grabados: ")); Serial.print(n/RF_BOTONES);
     Serial.print(F(" de ")); Serial.println(RF_CONTROLES);
@@ -808,6 +862,7 @@ void setup(){
 }
 
 void loop(){
+  vigilarVcc();
   bDep.poll(); bRst.poll();
   dormirSiNadie();
   if(durmiendo){                      // en reposo solo se escuchan las entradas
