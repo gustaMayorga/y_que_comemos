@@ -241,6 +241,44 @@ las lecturas son mucho más estables que con el sensor suelto.
    goma**, gomaespuma o una gota de **silicona neutra** en vez de a presión.
 4. Dejá **2 cm libres de obstáculos** por delante: ese es su punto ciego.
 
+## 🔌 Desacople en la alimentación del Nano
+
+Dos capacitores entre el pin `5V` y `GND` del Nano, **lo más cerca posible de
+los pines** (metidos en el zócalo está perfecto; a 10 cm ya no sirven):
+
+| Valor | Tipo | Para qué |
+|---|---|---|
+| **100 nF** | Cerámico, sin polaridad | Ruido de alta frecuencia |
+| **100 µF** | Electrolítico, **con polaridad** | Picos de consumo, caídas cortas |
+
+⚠️ **100 nF, no 1 nF.** 1 nF es cien veces más chico que lo que corresponde:
+no hace daño, pero casi no filtra nada. El valor estándar de desacople es
+100 nF.
+
+⚠️ **100 µF, no 100 mF.** 100 mF serían 100.000 µF, escala de supercapacitor:
+al conectar el USB sería un cortocircuito y el puerto se protegería.
+
+⚠️ El electrolítico tiene polaridad: la **franja marcada va al `GND`**. Al
+revés se infla y revienta.
+
+### El riesgo, y no es obvio
+
+Si los periféricos todavía toman su `VCC` del riel de los LED, **este
+capacitor puede empeorar el arranque**. Los 100 µF hacen que el riel del Nano
+suba **más lento**, así que la ventana en la que la fuente de los LED ya está
+arriba y el Nano todavía no se agranda — y es justo la ventana en la que los
+periféricos inyectan corriente por los diodos de los pines.
+
+**Primero el `VCC` de los periféricos al pin `5V` del Nano. Después el
+capacitor.** En ese orden.
+
+### Lo que NO arregla
+
+El desacople filtra ruido en la alimentación. **No** arregla un pin de botón
+en bajo, **no** arregla un retorno por los diodos ESD y **no** arregla un
+cable USB malo. Si el síntoma persiste igual, no es porque el capacitor sea
+chico.
+
 ## ⚡ El error más grave: periféricos alimentados de OTRA fuente
 
 **Síntoma que lo delata:** desconectás el USB, conectás **solo** la fuente de
