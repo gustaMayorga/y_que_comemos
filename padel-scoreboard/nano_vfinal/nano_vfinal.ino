@@ -13,6 +13,7 @@
 #include <EEPROM.h>
 #if defined(__AVR__)
   #include <avr/pgmspace.h>
+  #include <avr/wdt.h>
 #endif
 
 /* ========================= CONFIGURACION ========================= */
@@ -81,6 +82,11 @@
 #define PIN_PRESENCIA    -1
 #define DORMIR_MIN       10      // minutos sin movimiento para apagar
 
+// Limite de corriente del panel. IMPORTANTE: tiene que ser ~70% de lo que
+// REALMENTE da tu fuente, porque el Nano, el sensor y el RF comen aparte y
+// FastLED no los cuenta. Si el cartel se reinicia al prender, bajalo primero.
+//   power bank de 2 A -> 1400      cargador de 3 A -> 2000
+//   fuente de 5 V 4 A -> 2800      fuente de 5 V 10 A -> 7000
 #define MILIAMPERES    2600
 #define BRILLO_DIA      200
 #define DEPORTE_INICIAL   0      // ver la tabla de abajo
@@ -724,12 +730,40 @@ void grabarControles(){
   redib = true;
 }
 
+// Por que arranco el micro. El ATmega lo deja en MCUSR y hay que leerlo
+// ANTES que nada. Si el cartel se reinicia solo, esto dice si fue por
+// tension baja (BORF) o por el pin RESET (EXTRF), que son problemas muy
+// distintos. Ojo: algunos bootloaders borran el registro y queda en 0.
+uint8_t causaReset = 0;
+
+void mostrarCausaReset(){
+  Serial.print(F("  arranque: "));
+  if(!causaReset){ Serial.println(F("el bootloader borro el motivo")); return; }
+  if(causaReset & (1<<PORF))  Serial.print(F("PORF (se le dio corriente) "));
+  if(causaReset & (1<<EXTRF)) Serial.print(F("EXTRF <- PIN RESET, cable o ruido! "));
+  if(causaReset & (1<<BORF))  Serial.print(F("BORF <- TENSION BAJA, es la fuente! "));
+  if(causaReset & (1<<WDRF))  Serial.print(F("WDRF (watchdog) "));
+  Serial.println();
+}
+
+// Sube el brillo de a poco en vez de pedirle toda la corriente de golpe.
+// Muchas power bank y cargadores USB cortan ante un escalon brusco.
+void arranqueSuave(){
+  const uint8_t objetivo = BRILLOS[iBri];
+  for(uint16_t b=0; b<objetivo; b+=4){ FastLED.setBrightness((uint8_t)b); mostrar(); delay(12); }
+  FastLED.setBrightness(objetivo); mostrar();
+}
+
 void setup(){
+  causaReset = MCUSR; MCUSR = 0;
+#if defined(__AVR__)
+  wdt_disable();                 // por si quedo un watchdog armado dando vueltas
+#endif
   Serial.begin(BAUD);
   pinMode(PIN_BUZZER,OUTPUT);
   FastLED.addLeds<WS2812B,PIN_LED,GRB>(leds,NUM_LEDS);
   FastLED.setMaxPowerInVoltsAndMilliamps(5,MILIAMPERES);
-  FastLED.setBrightness(BRILLOS[iBri]);
+  FastLED.setBrightness(0);      // apaga la tira YA, antes de cualquier otra cosa
   limpiar(); mostrar();
   pinMode(PIN_LED_PLACA,OUTPUT);
 #if PIN_PRESENCIA >= 0
@@ -752,6 +786,7 @@ void setup(){
   Serial.print(F("  panel ")); Serial.print(ANCHO); Serial.print('x'); Serial.print(ALTO);
   Serial.print(F(" = ")); Serial.print(NUM_LEDS); Serial.println(F(" LEDs"));
   Serial.print(F("  RAM libre: ")); Serial.println(ramLibre());
+  mostrarCausaReset();
   { uint8_t n=0; for(uint8_t i=0;i<N_CODIGOS;i++) if(rfCod[i]) n++;
     Serial.print(F("  controles grabados: ")); Serial.print(n/RF_BOTONES);
     Serial.print(F(" de ")); Serial.println(RF_CONTROLES);
@@ -766,6 +801,8 @@ void setup(){
   Serial.print(sA.crudo()); Serial.print(F("  B=")); Serial.println(sB.crudo());
   Serial.println(F("  (acerca la paleta y mira cuanto cambia -> ajusta TCRT_UMBRAL)"));
 #endif
+  dibujar();                     // compone el cuadro con el brillo todavia en 0
+  arranqueSuave();               // y recien ahi sube la corriente, escalonada
   mostrarDeporte();
   dibujar();
 }

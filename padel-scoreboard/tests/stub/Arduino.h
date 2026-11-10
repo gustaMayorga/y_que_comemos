@@ -55,3 +55,10 @@ struct SerialStub {
   void println(uint16_t){} void println(){}
 };
 extern SerialStub Serial;
+
+// --- registro de causa de reset (stub) ---
+__attribute__((unused)) static unsigned char MCUSR = 0x01;   // en el host simulamos power-on
+#define PORF  0
+#define EXTRF 1
+#define BORF  2
+#define WDRF  3

@@ -282,6 +282,74 @@ plástico y madera**, así que va **adentro de la caja sellada**, sin agujeros.
 **No sirve para contar puntos**: no distingue equipos, no mide distancia y se
 dispara con cualquiera que pase. Para eso van los HC-SR04.
 
+## 🔁 El cartel se reinicia solo al encender
+
+**Primero mirá el monitor serie.** Si el banner `[cartel] tanteador multideporte`
+se repite una y otra vez, son reinicios de verdad. Si aparece **una sola vez** y
+lo que parpadea son los LEDs, el micro no se reinicia: es la tira (ver el
+último punto).
+
+El sketch ahora te dice **por qué** arrancó:
+
+```
+  arranque: BORF <- TENSION BAJA, es la fuente!
+```
+
+| Lo que dice | Qué significa |
+|---|---|
+| `PORF` | Arranque normal, se le dio corriente. Si se repite, la fuente **corta y vuelve** |
+| `BORF` | **Brown-out**: la tensión bajó de 4.3 V. Es alimentación, seguro |
+| `EXTRF` | Entró por el **pin RESET**: cable suelto, ruido o el botón |
+| `WDRF` | Watchdog. No lo usamos, así que sería un bootloader raro |
+| `el bootloader borro el motivo` | Normal en algunos bootloaders del Nano; usá el resto de la tabla |
+
+### Las causas, en orden de probabilidad
+
+**1. El Nano alimentado por `VIN` con 5 V.** El `VIN` pasa por el regulador
+interno, que necesita **7 V como mínimo**: con 5 V entrega ~3.5 V y el micro
+entra en brown-out. Con 5 V hay que entrar por el **pin `5V`**, no por `VIN`.
+Es la causa número uno y explica perfecto el *"a veces arranca bien"*.
+
+**2. La fuente corta por pico de arranque.** El capacitor de 1000 µF
+descargado es un cortocircuito en el instante del encendido. Muchas power
+bank y cargadores USB-C ven ese pico, cortan, el cap se descarga, vuelven a
+intentar: **bucle**. El estándar USB admite 10 µF, no 1000. Probá
+arrancar **sin el capacitor**: si arranca siempre, es eso. La solución es
+bajarlo a **470 µF**, que sigue haciendo su trabajo.
+
+**3. `MILIAMPERES` más alto de lo que da la fuente.** Está en 2600. Un power
+bank de 2 A no lo aguanta, y además el Nano, el sensor y el RF comen aparte
+sin que FastLED los cuente. **Bajalo a 1400 y probá.** Si arranca, el problema
+era ése y de ahí lo vas subiendo.
+
+**4. La power bank se apaga sola.** Casi todas cortan por debajo de ~75 mA.
+Con el tanteador en 0-0 el panel consume poquísimo → corta → el cap aguanta un
+instante → vuelve → **bucle**. Probá con un cargador de pared: si con el
+cargador no pasa, era la power bank.
+
+**5. Un solo punto de inyección, o cables finos.** Con 276 LEDs, los 5 V tienen
+que entrar por los **dos extremos** de la tira, con cable de 1 mm² o más. Si el
+Nano toma los 5 V del final de la tira, ve la tensión ya caída.
+
+**6. USB y 5 V externos conectados a la vez.** Desconectá uno.
+
+**7. Si el micro NO se reinicia y es la tira la que parpadea:** falta la
+resistencia **de 330 Ω en serie con la línea de DATOS**, entre `D6` y el
+primer LED. Que el cable sea corto no la hace opcional: sin ella la entrada
+del primer LED tiene ringing y la tira se corrompe. Y la masa del Nano y la de
+la tira tienen que estar unidas en **un solo punto**.
+
+### Lo que ya hace el firmware
+
+- Apaga la tira en el primer instante del `setup()`, antes de cualquier otra cosa
+- Arma el cuadro con el brillo en 0 y después lo **sube escalonado** (`arranqueSuave()`),
+  así la corriente no entra de golpe
+- Desarma cualquier watchdog que haya quedado armado
+
+Eso ayuda, pero **no reemplaza** arreglar los puntos 1 a 3: el bootloader del
+Nano tarda ~1 s antes de que el sketch corra, y en ese tiempo el firmware no
+puede hacer nada.
+
 ## 🔧 Problemas al compilar
 
 ### `No space left on device` en `AppData\Local\Temp`
