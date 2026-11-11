@@ -163,6 +163,15 @@
 // perdido: el primer LED dejo de recibir datos (cable, masa, o LED colgado).
 // 0 = apagado.
 #define REFRESCO_MS     500
+// Si el micro se reinicia (sin corte de corriente), retoma el partido donde
+// estaba: mismo deporte, mismo tanteo, mismo brillo, y sin pasar el icono ni
+// el nombre. Un reinicio pasa a ser un parpadeo de 2 s y no un partido perdido.
+// Partido nuevo = mantener RESET 2 s, como siempre.
+#define RECUPERAR_PARTIDO true
+// Brillo del arcoiris de festejo, en % del resto. Es el UNICO momento en que
+// se prenden los 276 LEDs juntos: un escalon de 3 a 5 veces el consumo del
+// tanteo. Al 40 % se sigue viendo como un festejo y el escalon baja a la mitad.
+#define FESTEJO_PCT      40
 
 #if MODO_MINIMO
   #undef  SENSOR_TIPO
@@ -550,7 +559,10 @@ void ola(uint8_t vueltas){
   if(vueltas > 3) vueltas = 3;        // nunca mas de ~1,5 s de arcoiris
   for(uint16_t t=0;t<(uint16_t)vueltas*110;t+=6){
     for(uint8_t y=0;y<ALTO;y++) for(uint8_t x=0;x<ANCHO;x++)
-      pix(x,y,rueda((uint8_t)(t+x*8+y*5)));
+    { const CRGB c = rueda((uint8_t)(t+x*8+y*5));
+      pix(x,y,CRGB((uint8_t)((uint16_t)c.r*FESTEJO_PCT/100),
+                   (uint8_t)((uint16_t)c.g*FESTEJO_PCT/100),
+                   (uint8_t)((uint16_t)c.b*FESTEJO_PCT/100))); }
     mostrar(); esperar(18);
   }
 }
@@ -894,6 +906,47 @@ void dormirSiNadie(){
 #endif
 }
 
+// --- el partido, guardado donde un reinicio no lo borra ---------------------
+struct Guardado { Estado e; uint8_t dep, bri, suma; };
+Guardado guard NOINIT;
+uint8_t sumaGuard(){
+  uint8_t x = 0x5A; const uint8_t* p = (const uint8_t*)&guard;
+  for(uint8_t i=0; i<sizeof(Guardado)-1; i++) x = (uint8_t)(x*31 + p[i]);
+  return x;
+}
+void guardarPartido(){
+  guard.e = E; guard.dep = deporte; guard.bri = iBri; guard.suma = sumaGuard();
+}
+bool recuperarPartido(){
+#if RECUPERAR_PARTIDO
+  if(guard.suma != sumaGuard() || guard.dep >= N_DEPORTES || guard.bri >= 3) return false;
+  deporte = guard.dep; cargarReglas(); resetPartido();
+  E = guard.e; iBri = guard.bri;
+  return true;
+#else
+  return false;
+#endif
+}
+
+// --- medir la pila: se pinta la RAM libre al arrancar y despues se mira cuanto
+// quedo sin tocar. Es el MINIMO historico de RAM libre: si se acerca a 0, la
+// pila pisa las variables y el programa enloquece. Si queda holgado, la
+// memoria queda descartada como causa, con un numero y no con una opinion.
+void pintarRam(){
+#if defined(__AVR__)
+  extern int __heap_start; uint8_t v;
+  for(uint8_t* p = (uint8_t*)&__heap_start; p < &v - 32; p++) *p = 0xC5;
+#endif
+}
+int ramMinima(){
+#if defined(__AVR__)
+  extern int __heap_start; const uint8_t* p = (const uint8_t*)&__heap_start;
+  int n = 0; while(n < 2048 && p[n] == 0xC5) n++;
+  return n;
+#else
+  return -1;
+#endif
+}
 int ramLibre(){
 #if defined(__AVR__)
   extern int __heap_start, *__brkval; int v;
@@ -935,7 +988,7 @@ void onPunto(uint8_t t){
   despertar();
   if(E.gan!=0xFF){ bip(300,180); return; }
   marca(ET_PUNTO);
-  punto(t); bip(1800,50); dibujar();
+  punto(t); guardarPartido(); bip(1800,50); dibujar();
   if(flags&4){     marca(ET_FESTEJO); festejo(E.gan); }
   else if(flags&2){ bip(2200,200); ola(1); dibujar(); }
   else if(flags&1){ bip(2000,130); flash(t,C_JUEGOS); }
@@ -1130,6 +1183,7 @@ void arranqueSuave(){
 
 void setup(){
   causaReset = MCUSR; MCUSR = 0;
+  pintarRam();
   if(magiaRam != 0xA55A){        // RAM con basura => le acaban de dar corriente
     magiaRam = 0xA55A; vccMin = 9999; vledMin = 9999; nReinicios = 0; vivoMs = 0;
     etapa = ET_REPOSO;
@@ -1168,6 +1222,7 @@ void setup(){
   bDep.begin(PIN_DEPORTE,false,GRABAR_HOLD_MS);
   bRst.begin(PIN_RESET,false,RESET_LARGO_MS);
   cargarReglas(); resetPartido();
+  const bool retomado = nReinicios && recuperarPartido();
   delay(250);
   Serial.println(F("\n[cartel] tanteador multideporte"));
   Serial.print(F("  panel ")); Serial.print(ANCHO); Serial.print('x'); Serial.print(ALTO);
@@ -1227,7 +1282,8 @@ void setup(){
   dibujar();                     // compone el cuadro con el brillo todavia en 0
   arranqueSuave();               // y recien ahi sube la corriente, escalonada
   resetEnPanel();
-  mostrarDeporte();
+  if(retomado) Serial.println(F("  partido RETOMADO donde estaba"));
+  else         mostrarDeporte();
   dibujar();
   marca(ET_REPOSO);
   tSalud = millis();             // la telemetria mide desde ACA, no desde el boot
@@ -1281,6 +1337,7 @@ void loop(){
       Serial.print(bDep.leer() ? '1' : '0');
       Serial.print(bRst.leer() ? '1' : '0');
       Serial.print(F("  mA~")); Serial.print(consumoEstimado());
+      Serial.print(F("  ram ")); Serial.print(ramMinima());
       mostrarVolts(F("  Vcc "), leerVcc());
       mostrarVolts(F("  min "), vccMin);
 #if PIN_VLED >= 0
@@ -1347,5 +1404,5 @@ void loop(){
 
   static uint32_t tD=0;
   const bool titila = (E.gan==0xFF) && (aviso(0)==3 || aviso(1)==3);
-  if(redib || (titila && millis()-tD>150) || (REFRESCO_MS && millis()-tD>REFRESCO_MS)){ dibujar(); redib=false; tD=millis(); }
+  if(redib || (titila && millis()-tD>150) || (REFRESCO_MS && millis()-tD>REFRESCO_MS)){ dibujar(); guardarPartido(); redib=false; tD=millis(); }
 }

@@ -104,6 +104,19 @@ por qué se reinició y qué estaba haciendo. Ver README, sección "La caja negr
 Atajo: `g` por el monitor serie entra a grabar sin mantener el botón.
 Al llegar a los 15 s entra solo a grabar (antes había que soltar).
 
+Agregado después (todo sin probar en placa):
+- `REFRESCO_MS 500`: reenvía el cuadro aunque no cambie, el panel se cura solo
+- Watchdog sólo se alimenta si `loop()` dio una vuelta en los últimos 20 s
+  (antes `esperar()` lo alimentaba siempre y un arcoíris infinito no reiniciaba)
+- `RECUPERAR_PARTIDO`: tras un reinicio sin corte retoma deporte, tanteo y brillo
+- `FESTEJO_PCT 40`: el arcoíris (único cuadro con los 276 LEDs) al 40 %
+- `[salud] ... ram N`: mínimo histórico de RAM libre (pila pintada con 0xC5)
+- `AUTO_PUNTOS` da 2 puntos a A y 1 a B (alternando quedaba en iguales eterno)
+- Auditoría: no hay apagado por inactividad activo (`PIN_PRESENCIA -1`), ni
+  `String`/`malloc`, ni contadores que desborden
+- OJO: bootloader nuevo borra MCUSR → la letra del panel sale `-`. Lo que
+  discrimina es si la pantalla de 2 s APARECE (reset) o no (corte de corriente)
+
 **Falta saber del usuario:** qué letra/número muestra el panel al reiniciarse,
 y qué veredicto imprime la grabación con el llavero EV1527.
 
