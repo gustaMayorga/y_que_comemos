@@ -155,6 +155,14 @@
 // panel entero: 276 LEDs prendidos durante segundos, la carga sostenida mas
 // grande de todo el programa, justo en el gesto que hace falta para grabar.
 #define BARRA_FILAS       2
+// Reenviar el cuadro al panel cada tantos ms aunque no haya cambiado nada.
+// Los WS2812 no tienen memoria segura: un pico en la alimentacion o en el cable
+// de datos les deja un cuadro roto o congelado, y sin esto quedaba asi hasta el
+// proximo punto. Con esto se corrige solo en medio segundo.
+// Y sirve de diagnostico: si AUN ASI el panel queda congelado, no fue un cuadro
+// perdido: el primer LED dejo de recibir datos (cable, masa, o LED colgado).
+// 0 = apagado.
+#define REFRESCO_MS     500
 
 #if MODO_MINIMO
   #undef  SENSOR_TIPO
@@ -1315,5 +1323,5 @@ void loop(){
 
   static uint32_t tD=0;
   const bool titila = (E.gan==0xFF) && (aviso(0)==3 || aviso(1)==3);
-  if(redib || (titila && millis()-tD>150)){ dibujar(); redib=false; tD=millis(); }
+  if(redib || (titila && millis()-tD>150) || (REFRESCO_MS && millis()-tD>REFRESCO_MS)){ dibujar(); redib=false; tD=millis(); }
 }
