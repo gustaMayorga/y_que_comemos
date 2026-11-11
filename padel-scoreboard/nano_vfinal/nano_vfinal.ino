@@ -503,16 +503,32 @@ void dibujar(){
 // Refrescar el watchdog. TODA espera que pueda durar mas de 8 s tiene que
 // llamarlo, o el watchdog la corta por la mitad.
 #if defined(__AVR__) && WATCHDOG
-  #define LATIDO() wdt_reset()
+  // El watchdog se alimenta SOLO si loop() dio una vuelta hace poco. Antes,
+  // esperar() lo alimentaba sin condiciones: si el micro quedaba atrapado en
+  // una animacion (el arcoiris corriendo para siempre), el watchdog comia
+  // igual y no lo rescataba nunca. El festejo mas largo dura ~10 s.
+  #define WDT_PRESUPUESTO_MS 20000UL
+  #define LATIDO() do{ if(millis() - tLoop < WDT_PRESUPUESTO_MS) wdt_reset(); }while(0)
+  #define COLGAR() for(;;){}          // dejar que el watchdog reinicie
 #else
   #define LATIDO() ((void)0)
+  #define COLGAR() break
 #endif
+uint32_t tLoop = 0;                   // ultima vez que loop() dio una vuelta
 
 // delay() es ciego: mientras dura no se muestrea Vcc, y justo el bip es el
 // momento de mas riesgo. esperar() hace lo mismo pero sigue vigilando.
 void esperar(uint16_t ms){
   const uint32_t t0 = millis();
-  while(millis() - t0 < ms){ vigilarVcc(); LATIDO(); }
+  // Cada vuelta tarda mas de 450 us (la medicion de Vcc). Si se dieron 8
+  // vueltas por milisegundo pedido y millis() no avanzo, el reloj esta muerto
+  // (interrupciones apagadas): de aca no se sale solo, que muerda el watchdog.
+  const uint32_t tope = (uint32_t)ms * 8 + 50;
+  uint32_t vueltas = 0;
+  while(millis() - t0 < ms){
+    vigilarVcc(); LATIDO();
+    if(++vueltas > tope){ COLGAR(); }
+  }
 }
 
 void bip(uint16_t f, uint16_t ms){
@@ -531,6 +547,7 @@ void flash(uint8_t t, const CRGB& c){
   mostrar(); esperar(110); dibujar();
 }
 void ola(uint8_t vueltas){
+  if(vueltas > 3) vueltas = 3;        // nunca mas de ~1,5 s de arcoiris
   for(uint16_t t=0;t<(uint16_t)vueltas*110;t+=6){
     for(uint8_t y=0;y<ALTO;y++) for(uint8_t x=0;x<ANCHO;x++)
       pix(x,y,rueda((uint8_t)(t+x*8+y*5)));
@@ -959,7 +976,7 @@ void grabarControles(){
     noInterrupts(); rfVistas = 0; rfLargas = 0; rfFlancos = 0; interrupts();
     const uint32_t lim = millis() + 30000UL;
     while(millis() < lim){
-      LATIDO(); marca(ET_GRABAR);
+      tLoop = millis(); LATIDO(); marca(ET_GRABAR);
       c = rfEsperar(1);
       noInterrupts(); if(rfFlancos){ hayFlancos = true; rfFlancos = 0; } interrupts();
       if(!c) continue;
@@ -1215,11 +1232,13 @@ void setup(){
   marca(ET_REPOSO);
   tSalud = millis();             // la telemetria mide desde ACA, no desde el boot
 #if defined(__AVR__) && WATCHDOG
+  tLoop = millis();
   wdt_enable(WDTO_8S);           // ultimo paso: ya paso todo el arranque lento
 #endif
 }
 
 void loop(){
+  tLoop = millis();
   LATIDO();
   vigilarVcc();
   vigilarVled();
