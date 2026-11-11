@@ -1298,7 +1298,12 @@ void loop(){
     if(millis() - tAP >= AUTO_PUNTOS){
       tAP = millis();
       Serial.print(F("[auto] punto nro ")); Serial.println(++nAP);
-      onPunto((uint8_t)(nAP & 1));
+      // Dos para A y uno para B. Alternando de a uno, en los deportes con
+      // ventaja el juego quedaba en 40-40 / ventaja / 40-40 PARA SIEMPRE: no
+      // era una falla, eran las reglas. Asi A gana juegos, sets y partido, y
+      // la prueba pasa tambien por el festejo, que es el pico de consumo.
+      if(E.gan != 0xFF){ resetPartido(); Serial.println(F("[auto] partido nuevo")); }
+      onPunto((uint8_t)((nAP % 3) == 0));
     } }
 #endif
 
