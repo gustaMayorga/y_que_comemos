@@ -12,7 +12,7 @@ de día en cualquier cancha**.
 
 ## Dónde está todo
 
-Repo `gustaMayorga/y_que_comemos`, rama **`ccr-158db404-xxgxh5`**.
+Repo `gustaMayorga/y_que_comemos`, rama **`claude/eager-feynman-7zidku`** (continúa `ccr-158db404-xxgxh5`).
 
 | Ruta | Qué es |
 |---|---|
@@ -142,7 +142,7 @@ y qué veredicto imprime la grabación con el llavero EV1527.
 
 ## Reglas de trabajo
 
-- Commits en **`ccr-158db404-xxgxh5`**, con las líneas `Co-Authored-By: Claude
+- Commits en **`claude/eager-feynman-7zidku`**, con las líneas `Co-Authored-By: Claude
   Opus 5` y `Claude-Session:`
 - `./tests/run_checks.sh` tiene que dar **`TODO OK`** antes de cada push.
   Compila con `-Wall -Wextra -Werror` contra stubs de host en `tests/stub/`
