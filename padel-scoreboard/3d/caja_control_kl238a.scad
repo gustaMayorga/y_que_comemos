@@ -260,7 +260,11 @@ module plantilla(){
 }
 
 /* ================= salida ================= */
-if(PIEZA == "base")      base();
+// La base tiene el fondo curvo: su punto mas bajo (el borde de las alas) queda
+// flecha_c por debajo de z = 0. Se sube esa medida para que apoye en la cama.
+module base_en_cama(){ translate([0, 0, flecha_c]) base(); }
+
+if(PIEZA == "base")      base_en_cama();
 if(PIEZA == "tapa")      translate([0, 0, tapa_esp]) rotate([180, 0, 0]) tapa();
 if(PIEZA == "botones")   botones_para_imprimir();
 if(PIEZA == "plantilla") plantilla();
@@ -270,7 +274,7 @@ if(PIEZA == "armado"){
   for(i = [0 : 2]) translate([botones[i].x, botones[i].y, z_tope]) boton(i);
 }
 if(PIEZA == "todo"){
-  base();
+  base_en_cama();
   // la tapa al lado, dada vuelta: cara de afuera contra la cama
   translate([0, 2*ey1 + oreja + 10, tapa_esp]) rotate([180, 0, 0]) tapa();
   translate([x0, ey0 - oreja - 14, 0]) botones_para_imprimir();
