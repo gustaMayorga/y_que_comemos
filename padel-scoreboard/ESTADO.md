@@ -85,6 +85,28 @@ espera hasta 30 s por botón. Arreglado con la macro `LATIDO()`.
 las dos están referidas al pin `GND` del propio chip. **Un rebote de masa es
 invisible** para todo este instrumental.
 
+## 🆕 Última sesión: tres fallas que eran del firmware
+
+Encontradas leyendo el código, **sin confirmar en banco todavía**:
+
+1. **La barra de "mantener botón" prendía los 276 LEDs** durante segundos, al
+   tope de `MILIAMPERES`: la mayor carga sostenida del programa, justo en el
+   gesto para grabar controles (15 s) y en el reset de partido (2 s). Ahora son
+   `BARRA_FILAS` 2 filas. Hipótesis: esto explica "no puedo grabar + se reinicia"
+2. **El decodificador RF descartaba los "0"** cuando el MX-RM-5V estira los
+   pulsos (350/1050 → 480/920 no pasaba la regla 1:2). Ahora decide por cuál
+   mitad es más larga y valida el período. Test con pulsos estirados y ruido
+3. **La grabación no decía por qué fallaba.** Ahora imprime cada trama y un
+   veredicto (D2 muerto / código rodante / sin tramas)
+
+Agregado: **caja negra** — el banner y el panel (letra + número, 2 s) dicen
+por qué se reinició y qué estaba haciendo. Ver README, sección "La caja negra".
+Atajo: `g` por el monitor serie entra a grabar sin mantener el botón.
+Al llegar a los 15 s entra solo a grabar (antes había que soltar).
+
+**Falta saber del usuario:** qué letra/número muestra el panel al reiniciarse,
+y qué veredicto imprime la grabación con el llavero EV1527.
+
 ## ⏳ Pendiente
 
 1. **Resistencia de 330 Ω entre D6 y el DIN del primer LED.** No está puesta.

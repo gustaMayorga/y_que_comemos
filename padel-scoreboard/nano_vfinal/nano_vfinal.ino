@@ -65,7 +65,7 @@
 #define PIN_RF_DATA       2      // -1 = sin RF (para bisecar un cuelgue)      // en el Nano tiene que ser D2 o D3 (interrupcion)
 #define RF_CONTROLES      2      // cuantos llaveros se pueden grabar
 #define RF_BOTONES        3      // botones por llavero (siempre 3)
-#define GRABAR_HOLD_MS 15000
+#define GRABAR_HOLD_MS 15000     // mantener el boton DEPORTE para grabar
 // Telemetria por serie cada tantos ms. 0 = apagada.
 // loops/s se desploma si algo le roba el CPU al loop: eso es un cuelgue.
 #define SALUD_MS       3000
@@ -83,7 +83,7 @@
 #define WATCHDOG       true
 // Flancos/s de RF a partir de los cuales la ISR se desactiva sola.
 // Normal es 2000-4000. A 50000 la ISR ya se come ~35% del CPU.
-#define RF_TORMENTA    50000UL     // mantener el boton DEPORTE para grabar
+#define RF_TORMENTA    50000UL
 #define PIN_BUZZER       11      // -1 = sin buzzer (para bisecar un reset)
 #define PIN_DEPORTE      12      // corto = deporte | 15 s = grabar controles
 #define PIN_RESET        A1      // corto = brillo  | 2 s  = reset del partido
@@ -142,6 +142,19 @@
    en serie, en vez de esperar 15 minutos parado adelante del sensor.
    Poner 2000, dejarlo correr, y contar cuantos puntos aguanta.             */
 #define AUTO_PUNTOS       0
+// Despues de un reinicio que NO fue por corte de corriente, el panel muestra
+// 2 s una letra y un numero: POR QUE se reinicio y QUE estaba haciendo.
+// Sirve para diagnosticar en la cancha, con power bank y SIN la PC enchufada
+// (enchufar la PC cambia las masas y la alimentacion: cambia el experimento).
+//   letra:  B = tension baja (brown-out)   W = watchdog (se colgo)
+//           E = pin RESET (o la PC abriendo el puerto serie)   - = no se sabe
+//   numero: 0 reposo  1 arranque  2 punto  3 festejo  4 barra de boton
+//           5 grabando controles  6 cambio de deporte
+#define MOSTRAR_RESET  true
+// Alto de la barra que crece al mantener un boton, en filas. ANTES llenaba el
+// panel entero: 276 LEDs prendidos durante segundos, la carga sostenida mas
+// grande de todo el programa, justo en el gesto que hace falta para grabar.
+#define BARRA_FILAS       2
 
 #if MODO_MINIMO
   #undef  SENSOR_TIPO
@@ -158,6 +171,21 @@
 void     vigilarVcc();
 void     esperar(uint16_t ms);
 uint16_t leerVcc();
+
+// Variables que SOBREVIVEN a un reinicio. La RAM no se borra cuando el micro
+// se resetea, solo cuando se le corta la corriente: poniendolas en .noinit
+// podemos ver que pasaba ANTES del reset que nos dejo sin saber nada.
+#if defined(__AVR__)
+  #define NOINIT __attribute__((section(".noinit")))
+#else
+  #define NOINIT
+#endif
+// La "caja negra": lo ultimo notable que estaba haciendo el programa.
+enum { ET_REPOSO=0, ET_ARRANQUE, ET_PUNTO, ET_FESTEJO, ET_BARRA, ET_GRABAR, ET_DEPORTE };
+uint8_t  etapa NOINIT;
+uint8_t  etapaPrev = ET_REPOSO;     // la que habia cuando se reinicio
+uint32_t tEtapa = 0;
+void marca(uint8_t e){ etapa = e; tEtapa = millis(); }
 
 #define C_PUNTOS   CRGB(255,  0,  0)
 #define C_JUEGOS   CRGB(255, 60,  0)
@@ -527,16 +555,20 @@ void festejo(uint8_t t){
 volatile uint32_t rfCodigo = 0;
 volatile bool     rfListo  = false;
 
-// Validacion POR PROPORCION, no por tiempos absolutos. No todos los llaveros
+// Validacion POR FORMA, no por tiempos absolutos. No todos los llaveros
 // usan la misma relacion entre el hueco de sincronismo y el pulso base (el
 // EV1527 usa 31, el PT2262 puede usar 4, 8, 16 o 31), asi que derivar el pulso
 // dividiendo por 31 rechazaba tramas buenas. Lo que SI es universal:
-//   - un bit es 3:1 (un "1") o 1:3 (un "0") entre su parte alta y su parte baja
-//   - todos los bits de una trama duran mas o menos lo mismo
+//   - en un bit, o el alto es mas largo que el bajo (un "1") o al reves (un "0")
+//   - todos los bits de una trama duran lo mismo (alto + bajo)
 #define RF_DEBUG false        // true = imprime cada trama decodificada
 
 volatile uint16_t rfFlancos = 0;   // para la telemetria: flancos por segundo
 volatile bool     rfTormenta = false;
+// Para explicar POR QUE no se pudo grabar un control:
+volatile uint8_t  rfVistas = 0;    // tramas de 24 bits bien formadas
+volatile uint8_t  rfLargas = 0;    // tramas de MAS de 24 bits = codigo rodante
+bool              rfEco = false;   // imprimir cada trama (se prende al grabar)
 
 void rfISR(){
   rfFlancos++;
@@ -564,19 +596,30 @@ void rfISR(){
 
   if(digitalRead(PIN_RF_DATA)){            // flanco de subida: termino un BAJO
     if(d > 2500 && d < 40000){             // hueco de sincronismo
-      if(sinc && bits == 24 && !rfListo){ rfCodigo = dato; rfListo = true; }
+      if(sinc && bits == 24){
+        if(rfVistas < 255) rfVistas++;
+        if(!rfListo){ rfCodigo = dato; rfListo = true; }
+      }
       bits = 0; dato = 0; base = 0; sinc = 1;
       return;
     }
     if(!sinc) return;
-    const bool uno  = alto > (uint16_t)(d * 2);
-    const bool cero = d > (uint16_t)(alto * 2);
-    if(!uno && !cero){ sinc = 0; return; }        // relacion ~1:1 -> ruido
+    // El receptor super-regenerativo ESTIRA los pulsos altos 100-150 us y le
+    // come lo mismo al bajo. Un "0" de 350/1050 sale como 480/920: ya no es
+    // 1:3 sino 1:1.9, y la regla vieja (exigir mas de 1:2) lo tiraba por
+    // ruido. Lo que el estiramiento NO cambia es la suma alto+bajo. Entonces:
+    //   - el bit se decide por cual de los dos es mas largo
+    //   - se pide una diferencia minima (9:7), que el ruido 1:1 no cumple
+    //   - y la suma tiene que repetirse dentro de +-25 % en los 24 bits
+    if(alto > 20000 || d > 20000){ sinc = 0; return; }
     const uint16_t tot = alto + d;
+    const bool uno = alto > d;
+    const uint16_t dif = uno ? (uint16_t)(alto - d) : (uint16_t)(d - alto);
+    if(tot < 300 || dif < (uint16_t)(tot/8)){ sinc = 0; return; }
     if(!base) base = tot;
-    else if(tot < (uint16_t)(base/2) || tot > (uint16_t)(base*2)){ sinc = 0; return; }
+    else if(tot < (uint16_t)(base - base/4) || tot > (uint16_t)(base + base/4)){ sinc = 0; return; }
     dato = (dato << 1) | (uno ? 1UL : 0UL);
-    if(++bits > 24) sinc = 0;
+    if(++bits > 24){ sinc = 0; if(rfLargas < 255) rfLargas++; }
   } else {                                 // flanco de bajada: termino un ALTO
     alto = d;
   }
@@ -592,7 +635,7 @@ bool rfTrama(uint32_t* out){
   if(!rfListo) return false;
   noInterrupts(); const uint32_t c = rfCodigo; rfListo = false; interrupts();
   if(c == 0 || c == 0xFFFFFFUL) return false;
-  if(RF_DEBUG){ Serial.print(F("[rf] trama ")); Serial.println(c); }
+  if(RF_DEBUG || rfEco){ Serial.print(F("[rf] trama ")); Serial.println(c); }
 
   static uint32_t cand = 0, tCand = 0, ultAcep = 0, tAcep = 0;
   static uint8_t  rep = 0;
@@ -834,6 +877,15 @@ int ramLibre(){
   return -1;
 #endif
 }
+// Barra de progreso de un boton mantenido: BARRA_FILAS filas de abajo, nada mas.
+void barraProgreso(uint32_t ms, uint32_t total, const CRGB& c){
+  marca(ET_BARRA);
+  const uint16_t n = (uint16_t)(ms >= total ? ANCHO : (ms * ANCHO) / total);
+  limpiar();
+  for(uint16_t x=0; x<n; x++)
+    for(uint8_t f=0; f<BARRA_FILAS; f++) pix((int16_t)x, ALTO-1-f, c);
+  mostrar(); barra = true;
+}
 void mostrarDeporte(){
   const uint8_t ic = pgm_read_byte(&DEP_ICONO[deporte]);
   const CRGB    c  = colorIcono(ic);
@@ -848,6 +900,7 @@ void mostrarDeporte(){
 #endif
 }
 void cambiarDeporte(){
+  marca(ET_DEPORTE);
   deporte=(uint8_t)((deporte+1)%N_DEPORTES);
   cargarReglas(); resetPartido();
   Serial.print(F("[deporte] ")); Serial.println(deporte);
@@ -856,8 +909,9 @@ void cambiarDeporte(){
 void onPunto(uint8_t t){
   despertar();
   if(E.gan!=0xFF){ bip(300,180); return; }
+  marca(ET_PUNTO);
   punto(t); bip(1800,50); dibujar();
-  if(flags&4)      festejo(E.gan);
+  if(flags&4){     marca(ET_FESTEJO); festejo(E.gan); }
   else if(flags&2){ bip(2200,200); ola(1); dibujar(); }
   else if(flags&1){ bip(2000,130); flash(t,C_JUEGOS); }
   else              flash(t,C_PUNTOS);
@@ -876,8 +930,10 @@ void onPunto(uint8_t t){
    ==================================================== */
 void grabarControles(){
   const uint8_t ctrl = rfProxCtrl;
+  marca(ET_GRABAR);
   Serial.print(F("[grabar] control ")); Serial.println(ctrl+1);
   bip(900,120); bip(900,120); bip(1400,250);
+  rfEco = true;                    // mostrar cada trama que llegue
 
   for(uint8_t b=0; b<RF_BOTONES; b++){
     // en pantalla: C1 / C2 arriba y el numero de boton abajo
@@ -891,10 +947,13 @@ void grabarControles(){
     Serial.print(F("  apreta el boton ")); Serial.println(b+1);
 
     uint32_t c = 0;
+    bool hayFlancos = false;
+    noInterrupts(); rfVistas = 0; rfLargas = 0; rfFlancos = 0; interrupts();
     const uint32_t lim = millis() + 30000UL;
     while(millis() < lim){
-      LATIDO();
+      LATIDO(); marca(ET_GRABAR);
       c = rfEsperar(1);
+      noInterrupts(); if(rfFlancos){ hayFlancos = true; rfFlancos = 0; } interrupts();
       if(!c) continue;
       bool rep=false;                       // no aceptar dos veces el mismo
       for(uint8_t i=0;i<b;i++) if(rfCod[ctrl*RF_BOTONES+i]==c) rep=true;
@@ -903,7 +962,19 @@ void grabarControles(){
     }
     if(!c){
       Serial.println(F("  tiempo agotado, se cancela"));
-      bip(300,400); limpiar(); mostrar(); return;
+      // ...y por que. Esto es lo que antes habia que adivinar.
+      Serial.print(F("  tramas de 24 bits: ")); Serial.print(rfVistas);
+      Serial.print(F("   de mas de 24: ")); Serial.println(rfLargas);
+      if(!hayFlancos)
+        Serial.println(F("  >> D2 no se movio NUNCA: receptor sin 5 V, sin masa, o DATA suelto"));
+      else if(rfVistas >= 2)
+        Serial.println(F("  >> llegaron tramas pero ninguna se repitio igual: llavero de codigo RODANTE, o ruido"));
+      else if(rfLargas)
+        Serial.println(F("  >> tramas de mas de 24 bits: llavero de codigo RODANTE, no se puede grabar"));
+      else
+        Serial.println(F("  >> el receptor vive pero no armo ninguna trama: pila, antena, 315 vs 433 MHz, u otro protocolo (ver tools/diag_rf, comando c)"));
+      rfEco = false;
+      bip(300,400); limpiar(); mostrar(); redib = true; return;
     }
     rfCod[ctrl*RF_BOTONES + b] = c;
     Serial.print(F("  guardado: ")); Serial.println(c);
@@ -913,6 +984,7 @@ void grabarControles(){
   }
   rfProxCtrl = (uint8_t)((ctrl+1) % RF_CONTROLES);
   rfGuardar();
+  rfEco = false;
   Serial.println(F("[grabar] listo"));
   limpiar(); mostrar(); esperar(300);
   redib = true;
@@ -924,14 +996,6 @@ void grabarControles(){
 // distintos. Ojo: algunos bootloaders borran el registro y queda en 0.
 uint8_t causaReset = 0;
 
-// Variables que SOBREVIVEN a un reinicio. La RAM no se borra cuando el micro
-// se resetea, solo cuando se le corta la corriente: poniendolas en .noinit
-// podemos ver que tension habia ANTES del reset que nos dejo sin saber nada.
-#if defined(__AVR__)
-  #define NOINIT __attribute__((section(".noinit")))
-#else
-  #define NOINIT
-#endif
 uint16_t magiaRam NOINIT;      // 0xA55A = la RAM vale, vengo de un reset
 uint16_t vccMin   NOINIT;      // la tension mas baja vista, en mV
 uint8_t  nReinicios NOINIT;
@@ -995,6 +1059,32 @@ void mostrarVolts(const __FlashStringHelper* etq, uint16_t mv){
   Serial.print(mv%1000); Serial.print(F(" V"));
 }
 
+const __FlashStringHelper* nombreEtapa(uint8_t e){
+  switch(e){
+    case ET_REPOSO:   return F("en reposo (no pasaba nada)");
+    case ET_ARRANQUE: return F("ARRANCANDO (subida de brillo / icono)");
+    case ET_PUNTO:    return F("sumando un PUNTO (bip + flash)");
+    case ET_FESTEJO:  return F("en el FESTEJO");
+    case ET_BARRA:    return F("con un BOTON MANTENIDO (barra)");
+    case ET_GRABAR:   return F("GRABANDO controles");
+    case ET_DEPORTE:  return F("cambiando de DEPORTE");
+    default:          return F("?");
+  }
+}
+// La misma informacion en el panel, para cuando no hay PC.
+void resetEnPanel(){
+#if MOSTRAR_RESET
+  if(!nReinicios) return;                       // arranque normal: nada que contar
+  const char l = (causaReset & (1<<BORF))  ? 'B' :
+                 (causaReset & (1<<WDRF))  ? 'W' :
+                 (causaReset & (1<<EXTRF)) ? 'E' : '-';
+  limpiar();
+  chr57(l, 3, 2, C_PUNTOS);
+  chr57((char)('0' + etapaPrev % 10), ANCHO-8, 2, C_SETS);
+  mostrar(); esperar(2000);
+#endif
+}
+
 void mostrarCausaReset(){
   Serial.print(F("  arranque: "));
   if(!causaReset){ Serial.println(F("el bootloader borro el motivo")); return; }
@@ -1017,9 +1107,11 @@ void setup(){
   causaReset = MCUSR; MCUSR = 0;
   if(magiaRam != 0xA55A){        // RAM con basura => le acaban de dar corriente
     magiaRam = 0xA55A; vccMin = 9999; vledMin = 9999; nReinicios = 0; vivoMs = 0;
+    etapa = ET_REPOSO;
   } else {
     nReinicios++;                // venimos de un reset: la RAM se conservo
   }
+  etapaPrev = etapa; etapa = ET_ARRANQUE;
 #if defined(__AVR__)
   wdt_disable();                 // por si quedo un watchdog armado dando vueltas
 #endif
@@ -1087,6 +1179,7 @@ void setup(){
   if(nReinicios){
     Serial.print(F("  estuvo vivo ")); Serial.print(vivoMs/1000);
     Serial.println(F(" s antes del ultimo reset"));
+    Serial.print(F("  se reinicio ")); Serial.println(nombreEtapa(etapaPrev));
   }
   if(vccMin < 4500)
     Serial.println(F("  !! por debajo de 4.5 V el 328P a 16 MHz esta FUERA DE SPEC"));
@@ -1108,8 +1201,10 @@ void setup(){
 #endif
   dibujar();                     // compone el cuadro con el brillo todavia en 0
   arranqueSuave();               // y recien ahi sube la corriente, escalonada
+  resetEnPanel();
   mostrarDeporte();
   dibujar();
+  marca(ET_REPOSO);
   tSalud = millis();             // la telemetria mide desde ACA, no desde el boot
 #if defined(__AVR__) && WATCHDOG
   wdt_enable(WDTO_8S);           // ultimo paso: ya paso todo el arranque lento
@@ -1136,6 +1231,11 @@ void loop(){
   }
   { static uint32_t tV=0; const uint32_t n=millis();
     if(n - tV >= 1000){ tV = n; vivoMs = n; } }   // sobrevive al reset
+  // la caja negra vuelve a "reposo" 1,5 s despues de lo ultimo que paso
+  if(etapa != ET_REPOSO && millis() - tEtapa > 1500) etapa = ET_REPOSO;
+
+  // 'g' por el monitor serie = grabar controles, sin mantener el boton 15 s
+  if(Serial.available() && Serial.read() == 'g'){ grabarControles(); return; }
 
   // --- telemetria: si loops/s se desploma, algo le esta robando el CPU -----
 #if SALUD_MS > 0
@@ -1183,16 +1283,14 @@ void loop(){
   }
 
   // --- RESET: barra roja mientras se mantiene ---
-  if(bRst.sost()){
-    const uint16_t n=(uint16_t)((bRst.desde()*NUM_LEDS)/RESET_LARGO_MS);
-    limpiar(); for(uint16_t i=0;i<n&&i<NUM_LEDS;i++) leds[i]=CRGB(255,0,0);
-    mostrar(); barra=true; return;
+  if(bRst.sost() && !bRst.yaL){
+    barraProgreso(bRst.desde(), RESET_LARGO_MS, CRGB(255,0,0)); return;
   }
   // --- DEPORTE mantenido: barra ambar hasta los 15 s = grabar controles ---
-  if(bDep.sost() && bDep.desde() > 900){
-    const uint16_t n=(uint16_t)((bDep.desde()*NUM_LEDS)/GRABAR_HOLD_MS);
-    limpiar(); for(uint16_t i=0;i<n&&i<NUM_LEDS;i++) leds[i]=CRGB(255,120,0);
-    mostrar(); barra=true; return;
+  // Al llegar a los 15 s entra SOLO, sin esperar a que se suelte el boton.
+  if(bDep.largo()){ grabarControles(); return; }
+  if(bDep.sost() && !bDep.yaL && bDep.desde() > 900){
+    barraProgreso(bDep.desde(), GRABAR_HOLD_MS, CRGB(255,120,0)); return;
   }
   if(barra){ barra=false; redib=true; }
 
@@ -1200,7 +1298,6 @@ void loop(){
     FastLED.setBrightness(brilloDe(iBri)); bip(1500,40); redib=true; }
   if(bRst.largo()){ resetPartido(); bip(1200,90); bip(1700,120); redib=true; }
   if(bDep.corto()) cambiarDeporte();
-  if(bDep.largo()) grabarControles();
 
   // --- control remoto: 1 = punto A, 2 = punto B, 3 = deshacer ---
   switch(rfLeer()){

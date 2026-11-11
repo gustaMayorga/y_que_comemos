@@ -141,8 +141,9 @@ falta un cuarto.
 
 ### 🔴 Cómo grabar un control
 
-1. **Mantené apretado el botón DEPORTE 15 segundos.** Una **barra ámbar** se va
-   llenando en el panel para que sepas que está contando.
+1. **Mantené apretado el botón DEPORTE 15 segundos.** Una **barra ámbar** de
+   dos filas avanza por abajo del panel. Al llegar al final **entra solo**, no
+   hace falta soltar. *(Atajo de banco: mandá una `g` por el monitor serie.)*
 2. Suena **bip bip biiip** y el panel muestra **`C1`** (o `C2`) y el número de
    botón a grabar.
 3. **Apretá el botón 1 del llavero** → **bip bip** ✔
@@ -963,6 +964,76 @@ arduino-cli lib install FastLED@3.6.0
 `setMaxPowerInVoltsAndMilliamps`, `setBrightness`, `show`, `clear`,
 `fill_solid`, `fadeToBlackBy`, `HeatColor`, `CHSV`, `sin8`, `cos8`, `sqrt16`,
 `random16`. No se pierde nada, y compila **varias veces más rápido**.
+
+### 🎯 No puedo grabar los controles, y se reinicia: tres cosas que eran del firmware
+
+Revisando el código (no el banco) aparecieron tres problemas reales:
+
+**1. La barra del botón era la carga sostenida más grande de todo el programa.**
+Para grabar hay que mantener `DEPORTE` 15 s, y la barra ámbar iba prendiendo
+**el panel entero**: desde el segundo ~9 los 276 LEDs quedaban clavados en el
+tope de `MILIAMPERES` hasta que soltabas. Peor que el festejo, que dura 2 s.
+Con power bank eso es exactamente la receta del reinicio — **justo en el gesto
+que hace falta para grabar**. Lo mismo, más corto, con la barra roja del reset
+de partido. Ahora la barra son `BARRA_FILAS` (2) filas: 46 LEDs como mucho.
+
+**2. El decodificador rechazaba los "0" de un llavero bueno.** El MX-RM-5V
+(super-regenerativo) **estira los pulsos altos** 100-150 µs y le saca lo mismo
+al bajo. Un "0" de 350/1050 µs llega como 480/920: ya no es 1:3 sino 1:1,9, y
+la regla vieja exigía más de 1:2. Resultado: tramas descartadas por "ruido" con
+el llavero correcto en la mano. Ahora el bit se decide por cuál mitad es más
+larga, y lo que se valida es que **alto + bajo** se repita (±25 %) en los 24
+bits — el estiramiento no cambia esa suma. `tests/test_rf.cpp` lo prueba con
+pulsos estirados y con 2 millones de flancos de ruido (0 tramas falsas).
+
+**3. Cuando la grabación fallaba no decía por qué.** Ahora sí. Durante la
+grabación imprime cada trama que llega (`[rf] trama ...`) y al agotarse el
+tiempo da el veredicto:
+
+| Mensaje | Qué es |
+|---|---|
+| `D2 no se movio NUNCA` | el receptor no tiene 5 V, o masa, o `DATA` está suelto |
+| `tramas de mas de 24 bits` | **código rodante** (el Intelbras): no se puede grabar |
+| `llegaron tramas pero ninguna se repitio igual` | código rodante, o ruido |
+| `el receptor vive pero no armo ninguna trama` | pila, antena, 315 vs 433 MHz, u otro protocolo → `tools/diag_rf`, comando `c` |
+
+### 🛩️ La caja negra: por qué se reinició y qué estaba haciendo
+
+El banner ahora agrega una línea, y **el panel muestra lo mismo 2 s** (letra +
+número) después de cualquier reinicio que no sea por corte de corriente. Así
+se puede diagnosticar **en la cancha, con power bank y sin la PC** — enchufar
+la PC cambia masas y alimentación, o sea cambia el experimento.
+
+```
+  arranque: BORF <- TENSION BAJA, es la fuente!
+  estuvo vivo 43 s antes del ultimo reset
+  se reinicio con un BOTON MANTENIDO (barra)
+```
+
+| Letra | Causa | Número | Qué hacía |
+|---|---|---|---|
+| `B` | brown-out: la tensión se hundió | `0` | reposo |
+| `W` | watchdog: el programa se colgó | `1` | arrancando |
+| `E` | pin RESET (o la PC abriendo el puerto) | `2` | sumando un punto |
+| `-` | el bootloader borró el motivo | `3` | festejo |
+| | | `4` | botón mantenido (barra) |
+| | | `5` | grabando controles |
+| | | `6` | cambio de deporte |
+
+Cómo leerlo:
+
+- **El panel se apaga del todo y vuelve sin letra** → no fue un reset: se cortó
+  la corriente. Es el power bank (protección por pico o apagado automático).
+- **`B`** → fuente/cable. El número dice qué consumo lo tiró.
+- **`W`** → el micro se colgó 8 s. Con el BOD del Nano en 2,7 V y el cristal de
+  16 MHz necesitando ~3,8 V, **un bajón de tensión que no llega a brown-out
+  cuelga el micro y termina en `W`**: `W` no absuelve a la fuente. Mirá `min`.
+- **`E` siempre en `0`, sin patrón** → ruido en el pin RESET... o el monitor
+  serie: **abrir el puerto reinicia el Nano** (DTR). Es normal.
+- **Siempre el mismo número** → ya sabés qué desconectar. **Números al azar**
+  con `0` de mayoría → no es el consumo del panel: es contacto o masa.
+
+No apaga el cartel ni cuesta nada. `MOSTRAR_RESET false` lo saca del panel.
 
 ### 📻 El serie se llena de `[rf] codigo sin grabar` sin tocar nada
 

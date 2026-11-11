@@ -16,7 +16,7 @@ g++ -std=c++17 -Wall -Wextra tests/test_score.cpp "$FW/padel_score.cpp" -o "$TMP
 
 echo
 echo "== 1b) test del decodificador de radio =="
-g++ -std=c++17 -Wall tests/test_rf.cpp -o "$TMP/test_rf" && "$TMP/test_rf" | tail -3 || fail=1
+g++ -std=c++17 -Wall tests/test_rf.cpp -o "$TMP/test_rf" && "$TMP/test_rf" | tail -8 || fail=1
 
 echo
 echo "== 2) compilacion de todas las variantes =="
